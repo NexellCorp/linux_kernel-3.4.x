@@ -51,6 +51,12 @@
 #define	CFG_ETHER_EXT_IRQ_NUM					(IRQ_GPIO_C_START + 26)
 
 /*------------------------------------------------------------------------------
+ * 	GMAC PHY
+ */
+#define	CFG_ETHER_GMAC_PHY_IRQ_NUM				(IRQ_GPIO_C_START + 26)
+#define	CFG_ETHER_GMAC_PHY_RST_NUM				(PAD_GPIO_A + 19)
+
+/*------------------------------------------------------------------------------
  * 	Nand
  */
 
@@ -195,7 +201,7 @@
 /*------------------------------------------------------------------------------
  * 	SDHC
  */
-#define CFG_SDMMC0_DETECT_IO					(PAD_GPIO_C + 30)	/* external cd */
+#define CFG_SDMMC0_DETECT_IO					(PAD_GPIO_C + 10)	/* external cd */
 
 /*------------------------------------------------------------------------------
  * 	Nand (HWECC)

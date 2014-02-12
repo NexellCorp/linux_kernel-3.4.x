@@ -695,3 +695,9 @@ unsigned int nxp_cpu_wake_event_devs(void)
 	return __wake_event_bits;
 }
 EXPORT_SYMBOL(nxp_cpu_wake_event_devs);
+
+int nxp_check_wake_event_alive(int num)
+{
+	return (__wake_event_bits & 1<<(num+2)) ? 1 : 0;
+}
+EXPORT_SYMBOL(nxp_check_wake_event_alive);

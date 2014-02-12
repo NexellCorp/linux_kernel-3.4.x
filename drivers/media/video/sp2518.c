@@ -64,6 +64,7 @@ static struct i2c_board_info asoc_i2c_camera = {
 #define V4L2_CID_SCENE_EXPOSURE         (V4L2_CTRL_CLASS_CAMERA | 0x1001)
 #define V4L2_CID_PRIVATE_PREV_CAPT      (V4L2_CTRL_CLASS_CAMERA | 0x1002)
 
+#if 0
 enum {
     V4L2_WHITE_BALANCE_INCANDESCENT = 0,
     V4L2_WHITE_BALANCE_FLUORESCENT,
@@ -71,6 +72,15 @@ enum {
     V4L2_WHITE_BALANCE_CLOUDY_DAYLIGHT,
     V4L2_WHITE_BALANCE_TUNGSTEN
 };
+#else
+enum {
+    V4L2_WHITE_BALANCE_INCANDESCENT = 0,
+    /*V4L2_WHITE_BALANCE_FLUORESCENT,*/
+    V4L2_WHITE_BALANCE_DAYLIGHT,
+    V4L2_WHITE_BALANCE_CLOUDY_DAYLIGHT,
+    /*V4L2_WHITE_BALANCE_TUNGSTEN*/
+};
+#endif
 
 struct regval_list {
     unsigned char reg_num;
@@ -1526,12 +1536,14 @@ static int sp2518_initialize_ctrls(struct sp2518_priv *priv)
         return -ENOENT;
     }
 
+#if 0
     priv->exposure = v4l2_ctrl_new_std(&priv->hdl, &sp2518_ctrl_ops,
             V4L2_CID_EXPOSURE, 0, 0xFFFF, 1, 500);
     if (!priv->exposure) {
         printk(KERN_ERR "%s: failed to create exposure ctrl\n", __func__);
         return -ENOENT;
     }
+#endif
 
     priv->gain = v4l2_ctrl_new_std(&priv->hdl, &sp2518_ctrl_ops,
             V4L2_CID_GAIN, 0, 0xFF, 1, 128);

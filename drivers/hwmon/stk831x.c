@@ -299,19 +299,22 @@ static int STK_i2c_Tx(char *txData, int length)
 		},
 	};
 
-	for (retry = 0; retry <= 3; retry++)
+	for (retry = 0; retry <= 1; retry++)
 	{
 		if (i2c_transfer(this_client->adapter, msg, 1) > 0)
 			break;
 		else
+		{
+			return -EIO;
 			mdelay(10);
+		}
 	}
 
 	if(*txData >= 0x21 && *txData <= 0x3F)
 	{
 		if(*txData == 0x3F)
 			msleep(1);
-		for (retry = 0; retry <= 3; retry++)
+		for (retry = 0; retry <= 1; retry++)
 		{
 			if (i2c_transfer(this_client->adapter, msg, 1) > 0)
 				break;
@@ -320,7 +323,7 @@ static int STK_i2c_Tx(char *txData, int length)
 		}
 	}
 
-	if (retry > 3)
+	if (retry > 1)
 	{
 		printk(KERN_ERR "%s: retry over 3\n", __func__);
 		return -EIO;

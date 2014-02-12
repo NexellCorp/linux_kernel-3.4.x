@@ -47,7 +47,7 @@
 #endif
 
 #define	DEF_I2C_RATE		(100000)	/* wait 50 msec */
-#define DEF_RETRY_COUNT		(10)
+#define DEF_RETRY_COUNT		(1)
 #define	DEF_WAIT_ACK		(200)		/* wait 50 msec */
 
 const static int i2c_gpio [][2] = {

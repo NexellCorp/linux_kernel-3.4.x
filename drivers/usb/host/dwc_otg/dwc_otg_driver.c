@@ -704,7 +704,7 @@ extern void set_otg_mode(unsigned int mode, int is_force);
 extern unsigned int get_otg_mode(void);
 
 #ifdef CONFIG_PM
-#if defined(CONFIG_USB_G_ANDROID)
+#if !defined(CONFIG_USB_G_ANDROID)
 //static int dwc_otg_driver_remove(struct platform_device *_dev);
 static int dwc_otg_driver_probe(struct platform_device *_dev);
 static struct notifier_block s_pm_notify;
@@ -740,7 +740,7 @@ int dwc_otg_hcd_pm_notify(struct notifier_block *notifier_block,
 
 static int dwc_otg_driver_suspend(struct platform_device *dev, pm_message_t state)
 {
-#if 0 //defined(CONFIG_USB_G_ANDROID)
+#if defined(CONFIG_USB_G_ANDROID)
     otg_clk_disable();
     otg_phy_off();
 #endif
@@ -750,7 +750,7 @@ static int dwc_otg_driver_suspend(struct platform_device *dev, pm_message_t stat
 
 static int dwc_otg_driver_resume(struct platform_device *dev)
 {
-#if 0 //defined(CONFIG_USB_G_ANDROID)
+#if defined(CONFIG_USB_G_ANDROID)
     unsigned int otg_mode = get_otg_mode();
 
     otg_phy_init();
@@ -955,7 +955,7 @@ static int dwc_otg_driver_probe(
 
     // psw0523 add for pm
 #if defined(CONFIG_PM) && defined(CONFIG_ARCH_NXP4330)
-#if defined(CONFIG_USB_G_ANDROID)
+#if !defined(CONFIG_USB_G_ANDROID)
     s_pdev = _dev;
 
     if (!s_pm_notify.notifier_call) {

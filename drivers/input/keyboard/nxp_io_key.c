@@ -66,6 +66,17 @@ struct key_info {
 struct input_dev *key_input = NULL;
 EXPORT_SYMBOL_GPL(key_input);
 
+void nxp_key_power_event(void)
+{
+	if (key_input) {
+		input_report_key(key_input, KEY_POWER, 1);
+    	input_sync(key_input);
+    	input_report_key(key_input, KEY_POWER, 0);
+    	input_sync(key_input);
+    }
+}
+EXPORT_SYMBOL(nxp_key_power_event);
+
 static void nxp_key_setup(struct key_info *key)
 {
 	struct key_code *code = key->code;
@@ -260,11 +271,7 @@ static int nxp_key_resume(struct platform_device *pdev)
 		int io = code[i].io;
 		int no = PAD_GET_BITNO(io);
 		if ((PAD_GPIO_ALV == (io & ~(0x1F))) &&	keycode == KEY_POWER) {
-			/*
-			 *  check wakeup source
-			 *  2 is VDDTOGLE, RTC
-			 */
-			if (0x1 & wake_event >> (no + 2)) {
+			if (nxp_check_wake_event_alive(no)) {
 				input_report_key(key->input, KEY_POWER, 1);
 		    	input_sync(key->input);
 		    	input_report_key(key->input, KEY_POWER, 0);

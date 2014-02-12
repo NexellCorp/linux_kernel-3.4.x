@@ -906,6 +906,123 @@ static struct dw_mci_board _dwmci0_data = {
 #endif /* CONFIG_MMC_DW */
 
 /*------------------------------------------------------------------------------
+ * DW GMAC board config
+ */
+#if defined(CONFIG_NXPMAC_ETH)
+#include <linux/phy.h>
+#include <linux/nxpmac.h>
+
+int  nxpmac_init(struct platform_device *pdev)
+{
+    u32 addr;
+#if 0
+    int grp_e = PAD_GET_GROUP(PAD_GPIO_E);
+
+    NX_GPIO_SetPullUpEnable( grp_e,  7, CFALSE );   // PAD_GPIOE7,     GMAC0_PHY_TXD[0]
+    NX_GPIO_SetPullUpEnable( grp_e,  8, CFALSE );   // PAD_GPIOE8,     GMAC0_PHY_TXD[1]
+    NX_GPIO_SetPullUpEnable( grp_e,  9, CFALSE );   // PAD_GPIOE9,     GMAC0_PHY_TXD[2]
+    NX_GPIO_SetPullUpEnable( grp_e, 10, CFALSE );   // PAD_GPIOE10,    GMAC0_PHY_TXD[3]
+    NX_GPIO_SetPullUpEnable( grp_e, 11, CFALSE );   // PAD_GPIOE11,    GMAC0_PHY_TXEN
+//    NX_GPIO_SetPullUpEnable( grp_e, 12, CFALSE );   // PAD_GPIOE12,    GMAC0_PHY_TXER
+//    NX_GPIO_SetPullUpEnable( grp_e, 13, CFALSE );   // PAD_GPIOE13,    GMAC0_PHY_COL
+    NX_GPIO_SetPullUpEnable( grp_e, 14, CFALSE );   // PAD_GPIOE14,    GMAC0_PHY_RXD[0]
+    NX_GPIO_SetPullUpEnable( grp_e, 15, CFALSE );   // PAD_GPIOE15,    GMAC0_PHY_RXD[1]
+    NX_GPIO_SetPullUpEnable( grp_e, 16, CFALSE );   // PAD_GPIOE16,    GMAC0_PHY_RXD[2]
+    NX_GPIO_SetPullUpEnable( grp_e, 17, CFALSE );   // PAD_GPIOE17,    GMAC0_PHY_RXD[3]
+    NX_GPIO_SetPullUpEnable( grp_e, 18, CFALSE );   // PAD_GPIOE18,    GMAC0_CLK_RX
+    NX_GPIO_SetPullUpEnable( grp_e, 19, CFALSE );   // PAD_GPIOE19,    GMAC0_PHY_RX_DV
+    NX_GPIO_SetPullUpEnable( grp_e, 20, CFALSE );   // PAD_GPIOE20,    GMAC0_GMII_MDC
+    NX_GPIO_SetPullUpEnable( grp_e, 21, CFALSE );   // PAD_GPIOE21,    GMAC0_GMII_MDI
+//    NX_GPIO_SetPullUpEnable( grp_e, 22, CFALSE );   // PAD_GPIOE22,    GMAC0_PHY_RXER
+//    NX_GPIO_SetPullUpEnable( grp_e, 23, CFALSE );   // PAD_GPIOE23,    GMAC0_PHY_CRS
+    NX_GPIO_SetPullUpEnable( grp_e, 24, CFALSE );   // PAD_GPIOE24,    GMAC0_GTX_CLK
+
+    NX_GPIO_SetPadFunction( grp_e,  7, 1 );         // PAD_GPIOE7,     GMAC0_PHY_TXD[0]
+    NX_GPIO_SetPadFunction( grp_e,  8, 1 );         // PAD_GPIOE8,     GMAC0_PHY_TXD[1]
+    NX_GPIO_SetPadFunction( grp_e,  9, 1 );         // PAD_GPIOE9,     GMAC0_PHY_TXD[2]
+    NX_GPIO_SetPadFunction( grp_e, 10, 1 );         // PAD_GPIOE10,    GMAC0_PHY_TXD[3]
+    NX_GPIO_SetPadFunction( grp_e, 11, 1 );         // PAD_GPIOE11,    GMAC0_PHY_TXEN
+//    NX_GPIO_SetPadFunction( grp_e, 12, 1 );         // PAD_GPIOE12,    GMAC0_PHY_TXER
+//    NX_GPIO_SetPadFunction( grp_e, 13, 1 );         // PAD_GPIOE13,    GMAC0_PHY_COL
+    NX_GPIO_SetPadFunction( grp_e, 14, 1 );         // PAD_GPIOE14,    GMAC0_PHY_RXD[0]
+    NX_GPIO_SetPadFunction( grp_e, 15, 1 );         // PAD_GPIOE15,    GMAC0_PHY_RXD[1]
+    NX_GPIO_SetPadFunction( grp_e, 16, 1 );         // PAD_GPIOE16,    GMAC0_PHY_RXD[2]
+    NX_GPIO_SetPadFunction( grp_e, 17, 1 );         // PAD_GPIOE17,    GMAC0_PHY_RXD[3]
+    NX_GPIO_SetPadFunction( grp_e, 18, 1 );         // PAD_GPIOE18,    GMAC0_CLK_RX
+    NX_GPIO_SetPadFunction( grp_e, 19, 1 );         // PAD_GPIOE19,    GMAC0_PHY_RX_DV
+    NX_GPIO_SetPadFunction( grp_e, 20, 1 );         // PAD_GPIOE20,    GMAC0_GMII_MDC
+    NX_GPIO_SetPadFunction( grp_e, 21, 1 );         // PAD_GPIOE21,    GMAC0_GMII_MDI
+//    NX_GPIO_SetPadFunction( grp_e, 22, 1 );     // PAD_GPIOE22,    GMAC0_PHY_RXER
+//    NX_GPIO_SetPadFunction( grp_e, 23, 1 );     // PAD_GPIOE23,    GMAC0_PHY_CRS
+    NX_GPIO_SetPadFunction( grp_e, 24, 1 );         // PAD_GPIOE24,    GMAC0_GTX_CLK
+#endif
+
+    // Clock control
+    NX_CLKGEN_Initialize();
+    addr = NX_CLKGEN_GetPhysicalAddress(CLOCKINDEX_OF_DWC_GMAC_MODULE);
+    NX_CLKGEN_SetBaseAddress( CLOCKINDEX_OF_DWC_GMAC_MODULE, (u32)IO_ADDRESS(addr) );
+    NX_CLKGEN_SetClockSource( CLOCKINDEX_OF_DWC_GMAC_MODULE, 0, 4);     // Sync mode for 100 & 10Base-T : External RX_clk
+    NX_CLKGEN_SetClockDivisor( CLOCKINDEX_OF_DWC_GMAC_MODULE, 0, 1);    // Sync mode for 100 & 10Base-T
+    NX_CLKGEN_SetClockOutInv( CLOCKINDEX_OF_DWC_GMAC_MODULE, 0, CFALSE);    // TX Clk invert off
+
+    NX_CLKGEN_SetClockDivisorEnable( CLOCKINDEX_OF_DWC_GMAC_MODULE, CTRUE);
+
+    // Reset control
+    NX_RSTCON_Initialize();
+    addr = NX_RSTCON_GetPhysicalAddress();
+    NX_RSTCON_SetBaseAddress( (u32)IO_ADDRESS(addr) );
+    NX_RSTCON_SetnRST(RESETINDEX_OF_DWC_GMAC_MODULE_aresetn_i, RSTCON_ENABLE);
+    udelay(100);
+    NX_RSTCON_SetnRST(RESETINDEX_OF_DWC_GMAC_MODULE_aresetn_i, RSTCON_DISABLE);
+    udelay(100);
+    NX_RSTCON_SetnRST(RESETINDEX_OF_DWC_GMAC_MODULE_aresetn_i, RSTCON_ENABLE);
+    udelay(100);
+
+	return 0;
+}
+
+static struct stmmac_mdio_bus_data nxpmac0_mdio_bus = {
+	.phy_mask = 0,
+	.probed_phy_irq = CFG_ETHER_GMAC_PHY_IRQ_NUM,
+};
+
+static struct plat_stmmacenet_data nxpmac_plat_data = {
+	.phy_addr = 3,
+	.interface = PHY_INTERFACE_MODE_RGMII,
+	.autoneg = AUTONEG_DISABLE, //AUTONEG_ENABLE or AUTONEG_DISABLE
+	.speed = SPEED_100,
+	.duplex = DUPLEX_FULL,
+	.pbl = 16,          /* burst 16 */
+	.clk_csr = 0x28,    /* clk_csr_i = 20-35MHz & MDC = clk_csr_i/8 */
+	.has_gmac = 1,      /* GMAC ethernet    */
+	.enh_desc = 0,
+	.mdio_bus_data = &nxpmac0_mdio_bus,
+	.init = &nxpmac_init,
+};
+
+/* DWC GMAC Controller registration */
+
+static struct resource nxpmac_resource[] = {
+    [0] = DEFINE_RES_MEM(PHY_BASEADDR_GMAC, SZ_8K),
+    [1] = DEFINE_RES_IRQ_NAMED(IRQ_PHY_GMAC, "macirq"),
+};
+
+static u64 nxpmac_dmamask = DMA_BIT_MASK(32);
+
+struct platform_device nxp_gmac_dev = {
+    .name           = "stmmaceth",  //"nxp4330-gmac",
+    .id             = -1,
+    .num_resources  = ARRAY_SIZE(nxpmac_resource),
+    .resource       = nxpmac_resource,
+    .dev            = {
+        .dma_mask           = &nxpmac_dmamask,
+        .coherent_dma_mask  = DMA_BIT_MASK(32),
+        .platform_data      = &nxpmac_plat_data,
+    }
+};
+#endif
+
+/*------------------------------------------------------------------------------
  * register board platform devices
  */
 void __init nxp_board_devices_register(void)
@@ -953,6 +1070,11 @@ void __init nxp_board_devices_register(void)
 #if defined(CONFIG_V4L2_NEXELL) || defined(CONFIG_V4L2_NEXELL_MODULE)
     printk("plat: add device nxp-v4l2\n");
     platform_device_register(&nxp_v4l2_dev);
+#endif
+
+#if defined(CONFIG_NXPMAC_ETH)
+    printk("plat: add device nxp-gmac\n");
+    platform_device_register(&nxp_gmac_dev);
 #endif
 
 	/* END */
