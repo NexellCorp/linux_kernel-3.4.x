@@ -937,8 +937,13 @@ static bool front_camera_power_state_changed(void)
 
 static struct i2c_board_info front_camera_i2c_boardinfo[] = {
     {
-        /* I2C_BOARD_INFO("SP0A19", 0x42>>1), */
+#if defined(CONFIG_VIDEO_SP0A19)
+        I2C_BOARD_INFO("SP0A19", 0x42>>1),
+#elif defined(CONFIG_VIDEO_SP0838)
         I2C_BOARD_INFO("SP0838", 0x18),
+#else
+#error "You must select SP0838 or SP0A19 for front camera!!!"
+#endif
     },
 };
 
@@ -1180,7 +1185,7 @@ static int _dwmci0_get_cd(u32 slot_id)
 }
 
 static struct dw_mci_board _dwmci0_data = {
-	.quirks			= DW_MCI_QUIRK_HIGHSPEED,
+	.quirks			= DW_MCI_QUIRK_BROKEN_CARD_DETECTION,
 	.bus_hz			= 100 * 1000 * 1000,
 	.caps			= MMC_CAP_CMD23,
 	.detect_delay_ms= 200,
@@ -1197,14 +1202,14 @@ static struct dw_mci_board _dwmci0_data = {
 #ifdef CONFIG_MMC_NEXELL_CH1
 static struct dw_mci_board _dwmci1_data = {
 	.quirks			= DW_MCI_QUIRK_BROKEN_CARD_DETECTION |
-				  		DW_MCI_QUIRK_HIGHSPEED |
-				  		DW_MMC_QUIRK_HW_RESET_PW |
-				  		DW_MCI_QUIRK_NO_DETECT_EBIT,
+				  	  DW_MCI_QUIRK_HIGHSPEED |
+				  	  DW_MMC_QUIRK_HW_RESET_PW |
+				      DW_MCI_QUIRK_NO_DETECT_EBIT,
 	.bus_hz			= 100 * 1000 * 1000,
 	.caps			= MMC_CAP_UHS_DDR50 |
-						MMC_CAP_NONREMOVABLE |
-				  		MMC_CAP_4_BIT_DATA | MMC_CAP_CMD23 |
-				  		MMC_CAP_ERASE | MMC_CAP_HW_RESET,
+					  MMC_CAP_NONREMOVABLE |
+			 	  	  MMC_CAP_4_BIT_DATA | MMC_CAP_CMD23 |
+				  	  MMC_CAP_ERASE | MMC_CAP_HW_RESET,
 	.caps2			= MMC_CAP2_PACKED_WR,
 	.desc_sz		= 4,
 	.detect_delay_ms= 200,

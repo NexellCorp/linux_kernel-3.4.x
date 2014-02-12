@@ -1752,6 +1752,7 @@ static int sensor_initialize_ctrls(struct sensor *sensor)
     }
 #endif
 
+#if 0
 #if CONFIG_SENSOR_Exposure
     sensor->exposure = v4l2_ctrl_new_std(&sensor->hdl, &sensor_ctrl_ops,
             V4L2_CID_EXPOSURE, 0, 6, 1, 0);
@@ -1759,6 +1760,7 @@ static int sensor_initialize_ctrls(struct sensor *sensor)
         printk(KERN_ERR "%s: failed to create exposure ctrl\n", __func__);
         return -ENOENT;
     }
+#endif
 #endif
 
 #if CONFIG_SENSOR_Saturation

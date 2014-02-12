@@ -96,6 +96,8 @@ void		 	nxp_cpu_periph_register_clock(int id, long ext1, long ext2);
 unsigned long 	nxp_cpu_pll_change_frequency(int no, unsigned long rate);
 
 extern unsigned int nxp_cpu_wake_event_devs(void);	/* VDDTOGLE, RTC, ALIVE0, 1, ... */
+extern int nxp_check_wake_event_alive(int alive_no);
+extern void nxp_key_power_event(void);
 
 /* low level debug message */
 void lldebugout(const char *fmt, ...);

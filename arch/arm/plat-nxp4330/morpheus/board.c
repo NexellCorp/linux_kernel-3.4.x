@@ -132,6 +132,9 @@ static void bd_gpio_init(void)
 			NX_GPIO_SetPullUpEnable(index, bit, (plup ? CTRUE : CFALSE));
 			set_gpio_strenth(index, bit, stren);
 		}
+
+		NX_GPIO_SetDRV0_DISABLE_DEFAULT(index, 0xFFFFFFFF);
+		NX_GPIO_SetDRV1_DISABLE_DEFAULT(index, 0xFFFFFFFF);
 	}
 }
 
