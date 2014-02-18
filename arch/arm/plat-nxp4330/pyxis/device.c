@@ -1161,6 +1161,11 @@ int _dwmci_ext_cd_cleanup(void (*notify_func)(struct platform_device *, int stat
 	return 0;
 }
 
+static int _dwmci_get_ro(u32 slot_id)
+{
+	return 0;
+}
+
 #ifdef CONFIG_MMC_NEXELL_CH0
 static int _dwmci0_init(u32 slot_id, irq_handler_t handler, void *data)
 {
@@ -1193,6 +1198,7 @@ static struct dw_mci_board _dwmci0_data = {
 //	.ddr_timing		= 0x03030002,
 	.cd_type		= DW_MCI_CD_EXTERNAL,
 	.init			= _dwmci0_init,
+	.get_ro         = _dwmci_get_ro,
 	.get_cd			= _dwmci0_get_cd,
 	.ext_cd_init	= _dwmci_ext_cd_init,
 	.ext_cd_cleanup	= _dwmci_ext_cd_cleanup,
