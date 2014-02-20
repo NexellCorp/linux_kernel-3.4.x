@@ -17,13 +17,13 @@
 #include <linux/jiffies.h>
 #include <linux/spinlock.h>
 
-enum irqtype {
-	MPU,
-	ACCEL,
-	COMPASS
-};
-
 #ifdef CONFIG_INV_TESTING
+
+enum irqtype {
+	IRQ_MPU,
+	IRQ_ACCEL,
+	IRQ_COMPASS
+};
 
 #define INV_I2C_INC_MPUREAD(x)		inv_iio_counters_mpuread(x)
 #define INV_I2C_INC_MPUWRITE(x)		inv_iio_counters_mpuwrite(x)

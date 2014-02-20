@@ -37,21 +37,6 @@ struct inv_counters {
 
 static struct inv_counters Counters;
 
-void inv_iio_counters_set_i2cirq(enum irqtype type, int irq)
-{
-	switch (type) {
-	case MPU:
-		mpu_irq = irq;
-		break;
-	case ACCEL:
-		accel_irq = irq;
-		break;
-	case COMPASS:
-		compass_irq = irq;
-		break;
-	}
-}
-
 static ssize_t i2c_counters_show(struct class *cls,
 			struct class_attribute *attr, char *buf)
 {
@@ -66,6 +51,22 @@ static ssize_t i2c_counters_show(struct class *cls,
 		compass_irq ? kstat_irqs(compass_irq) : Counters.i2c_compassirq,
 		Counters.i2c_compassreads, Counters.i2c_compasswrites);
 }
+
+void inv_iio_counters_set_i2cirq(enum irqtype type, int irq)
+{
+	switch (type) {
+	case IRQ_MPU:
+		mpu_irq = irq;
+		break;
+	case IRQ_ACCEL:
+		accel_irq = irq;
+		break;
+	case IRQ_COMPASS:
+		compass_irq = irq;
+		break;
+	}
+}
+EXPORT_SYMBOL_GPL(inv_iio_counters_set_i2cirq);
 
 void inv_iio_counters_tempread(int count)
 {
