@@ -259,10 +259,5 @@
  */
 #define CFG_IO_MIPI_CAMERA_RESETN			((PAD_GPIO_B + 8) | PAD_FUNC_ALT0)		/* GPIO */
 
-/*------------------------------------------------------------------------------
- *	GPIO NAND
- */
-#define CFG_IO_NAND_nWP						(PAD_GPIO_C + 27) 		/* GPIO */
-
 #endif	/* __CFG_GPIO_H__ */
 

@@ -78,6 +78,21 @@ static void cpu_bus_init(void)
 	NX_MCUS_OpenModule();
 
 	/*
+	 * NAND Bus config
+	 */
+#if 0
+	NX_MCUS_SetNANDBUSConfig
+	(
+		0, /* NF */
+		0x0, //CFG_SYS_NAND_TACS,		// tACS  ( 0 ~ 3 )
+		0x0, //CFG_SYS_NAND_TCAH,		// tCAH  ( 0 ~ 3 )
+		0xf, //CFG_SYS_NAND_TCOS,		// tCOS  ( 0 ~ 3 )
+		0xf, //CFG_SYS_NAND_TCOH,		// tCOH  ( 0 ~ 3 )
+		0xf  //CFG_SYS_NAND_TACC		// tACC  ( 1 ~ 16)
+	);
+#endif
+
+	/*
 	 * MCU-Static config: Static Bus #0 ~ #1
 	 */
 	#define STATIC_BUS_CONFIGUTATION( _n_ )								\

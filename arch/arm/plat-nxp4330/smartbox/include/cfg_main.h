@@ -57,8 +57,16 @@
 #define	CFG_ETHER_GMAC_PHY_RST_NUM				(PAD_GPIO_A + 19)
 
 /*------------------------------------------------------------------------------
- * 	Nand
+ * 	Nand (HWECC)
  */
+#define CFG_NAND_ECC_BYTES 						1024
+#define CFG_NAND_ECC_BITS               		40			/* 512 - 4,8,16,24 1024 - 24,40,60 */
+//#define CFG_NAND_ECCIRQ_MODE
+
+/*------------------------------------------------------------------------------
+ *	Nand (GPIO)
+ */
+#define CFG_IO_NAND_nWP							(PAD_GPIO_C + 27)		/* GPIO */
 
 /*------------------------------------------------------------------------------
  * 	Display (DPC and MLC)
@@ -202,13 +210,6 @@
  * 	SDHC
  */
 #define CFG_SDMMC0_DETECT_IO					(PAD_GPIO_C + 10)	/* external cd */
-
-/*------------------------------------------------------------------------------
- * 	Nand (HWECC)
- */
-#define CFG_NAND_ECC_BYTES 						1024
-#define CFG_NAND_ECC_BITS               		4			/* 4,8,16 */
-#define CFG_NAND_ECC_LIMIT             			(CFG_NAND_ECC_BITS)			/* ecc correction limit */
 
 /*------------------------------------------------------------------------------
  *  MPEGTSIF

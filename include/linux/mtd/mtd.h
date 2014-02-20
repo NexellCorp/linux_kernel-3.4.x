@@ -265,6 +265,8 @@ int mtd_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen,
 int mtd_panic_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen,
 		    const u_char *buf);
 
+int mtd_read_oob(struct mtd_info *mtd, loff_t from, struct mtd_oob_ops *ops);
+#if 0
 static inline int mtd_read_oob(struct mtd_info *mtd, loff_t from,
 			       struct mtd_oob_ops *ops)
 {
@@ -273,6 +275,7 @@ static inline int mtd_read_oob(struct mtd_info *mtd, loff_t from,
 		return -EOPNOTSUPP;
 	return mtd->_read_oob(mtd, from, ops);
 }
+#endif
 
 static inline int mtd_write_oob(struct mtd_info *mtd, loff_t to,
 				struct mtd_oob_ops *ops)
@@ -356,6 +359,11 @@ static inline uint32_t mtd_mod_by_ws(uint64_t sz, struct mtd_info *mtd)
 static inline int mtd_has_oob(const struct mtd_info *mtd)
 {
 	return mtd->_read_oob && mtd->_write_oob;
+}
+
+static inline int mtd_type_is_nand(const struct mtd_info *mtd)
+{
+	return mtd->type == MTD_NANDFLASH || mtd->type == MTD_MLCNANDFLASH;
 }
 
 static inline int mtd_can_have_bb(const struct mtd_info *mtd)

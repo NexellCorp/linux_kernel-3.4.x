@@ -234,10 +234,5 @@
 #define PAD_GPIOALV6    (PAD_MODE_IN  | PAD_LEVEL_LOW   | PAD_PULLUP_OFF)				//
 #define PAD_GPIOALV7    (PAD_MODE_IN  | PAD_LEVEL_LOW   | PAD_PULLUP_ON )				//
 
-/*------------------------------------------------------------------------------
- *	GPIO NAND
- */
-#define CFG_IO_NAND_nWP						(PAD_GPIO_C + 27)		/* GPIO */
-
 #endif	/* __CFG_GPIO_H__ */
 

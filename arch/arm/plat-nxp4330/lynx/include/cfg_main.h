@@ -51,8 +51,17 @@
 #define	CFG_ETHER_EXT_IRQ_NUM					(IRQ_GPIO_C_START + 26)
 
 /*------------------------------------------------------------------------------
- * 	Nand
+ * 	Nand (HWECC)
  */
+#define CFG_NAND_ECC_BYTES 						1024
+#define CFG_NAND_ECC_BITS               		24			/* 512 - 4,8,16,24 1024 - 24,40,60 */
+//#define CFG_NAND_ECCIRQ_MODE
+//#define CFG_MTD_NAND_BMT_FIRST_LAST
+
+/*------------------------------------------------------------------------------
+ *	Nand (GPIO)
+ */
+#define CFG_IO_NAND_nWP							(PAD_GPIO_C + 27)		/* GPIO */
 
 /*------------------------------------------------------------------------------
  * 	Display (DPC and MLC)
@@ -211,13 +220,6 @@
  * 	SDHC
  */
 #define	CFG_SDMMC0_DETECT_IO					(PAD_GPIO_B + 24)	/* external cd */
-
-/*------------------------------------------------------------------------------
- * 	Nand (HWECC)
- */
-#define CFG_NAND_ECC_BYTES 						1024
-#define CFG_NAND_ECC_BITS               		40			/* 512 - 4,8,16,24 1024 - 24,40,60 */
-//#define CFG_NAND_ECCIRQ_MODE
 
 /*------------------------------------------------------------------------------
  *  MPEGTSIF

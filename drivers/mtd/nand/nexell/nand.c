@@ -59,9 +59,6 @@
 			__FILE__, __FUNCTION__, __LINE__),	\
 		printk(KERN_ERR msg); }
 
-/*------------------------------------------------------------------------------
- * nand interface
- */
 #define CLEAR_RnB(r)							\
 	r = NX_MCUS_GetInterruptPending(0);			\
 	if (r) {									\
@@ -84,10 +81,13 @@
 #define CONFIG_SYS_NAND_MAX_CHIPS   1
 #endif
 
-
+/*------------------------------------------------------------------------------
+ * nand interface
+ */
 static void nand_select_chip(struct mtd_info *mtd, int chipnr)
 {
 	DBGOUT("%s, chipnr=%d\n", __func__, chipnr);
+
 #if defined(CFG_NAND_OPTIONS)
 	struct nand_chip *chip = mtd->priv;
 	chip->options |= CFG_NAND_OPTIONS;
@@ -114,18 +114,31 @@ static void nand_cmd_ctrl(struct mtd_info *mtd, int cmd, unsigned int ctrl)
 	struct nand_chip *chip = mtd->priv;
 	void __iomem* addr = chip->IO_ADDR_W;
 	int ret = 0;
+	unsigned long flags;
+	struct nxp_nand *nxp = mtd_to_nxp(mtd);
 
 	if (cmd == NAND_CMD_NONE)
 		return;
 
-	if (ctrl & NAND_CLE)
-		writeb(cmd, addr + MASK_CLE);
-	else if (ctrl & NAND_ALE)
-		writeb(cmd, addr + MASK_ALE);
+	spin_lock_irqsave (&nxp->cmdlock, flags);
 
-	if (cmd != NAND_CMD_RESET &&
-		cmd != NAND_CMD_READSTART)
-		CLEAR_RnB(ret);
+	if (ctrl & NAND_CLE)
+	{
+		if (cmd != NAND_CMD_STATUS &&
+			cmd != NAND_CMD_READID &&
+			cmd != NAND_CMD_RESET)
+			CLEAR_RnB(ret);
+
+		//printk ("  [%s:%d] command: %02x\n", __func__, __LINE__, (unsigned char)cmd);
+		writeb(cmd, addr + MASK_CLE);
+	}
+	else if (ctrl & NAND_ALE)
+	{
+		//printk ("  [%s:%d] address: %02x\n", __func__, __LINE__, (unsigned char)cmd);
+		writeb(cmd, addr + MASK_ALE);
+	}
+
+	spin_unlock_irqrestore (&nxp->cmdlock, flags);
 }
 
 struct nand_timings {
@@ -321,7 +334,7 @@ static int nexell_nand_timing_set(struct mtd_info *mtd)
 			 CFG_SYS_NAND_TCAH,              // tCAH  ( 0 ~ 3 )
 			 CFG_SYS_NAND_TCOS,              // tCOS  ( 0 ~ 3 )
 			 CFG_SYS_NAND_TCOH,              // tCOH  ( 0 ~ 3 )
-			 CFG_SYS_NAND_TACC              // tACC  ( 1 ~ 16)
+			 CFG_SYS_NAND_TACC               // tACC  ( 1 ~ 16)
 		);
 
 		return 0;
@@ -403,6 +416,10 @@ static uint8_t *verify_page;
 static int nand_bch_write_page(struct mtd_info *mtd, struct nand_chip *chip,
 			   const uint8_t *buf, int oob_required, int page, int cached, int raw)
 {
+#ifdef CONFIG_MTD_NAND_VERIFY_WRITE
+	int ret = 0;
+	struct nxp_nand *nxp = mtd_to_nxp(mtd);
+#endif
 	int status;
 
 	DBGOUT("%s page %d, raw=%d\n", __func__, page, raw);
@@ -445,28 +462,30 @@ static int nand_bch_write_page(struct mtd_info *mtd, struct nand_chip *chip,
 
 	/* Send command to read back the data */
 	chip->cmdfunc(mtd, NAND_CMD_READ0, 0, page);
-	chip->ecc.read_page(mtd, chip, (uint8_t *)verify_page, oob_required, page);
-	#if (0)
+	chip->ecc.read_page(mtd, chip, (uint8_t *)nxp->verify_page, oob_required, page);
+	if (ret < 0)
+		return -EIO; //		return ret;
+
+	if (memcmp (nxp->verify_page, buf, mtd->writesize))
 	{
-		int i = 0;
-		for (i = 0; i < mtd->writesize; i++)
-		if (buf[i] != verify_page[i]) {
-			printk("%s fail verify %d page\n", __func__, page);
-			return -EIO;
-		}
+		ERROUT ("%s fail verify %d page\n", __func__, page);
+		return -EIO;
 	}
-	#endif
+
+	chip->cmdfunc(mtd, NAND_CMD_STATUS, -1, -1);
 #endif
 	return 0; // mtd->ecc_stats.corrected - stats.corrected ? -EUCLEAN : 0
 }
 
 static int nand_ecc_layout_swbch(struct mtd_info *mtd)
 {
+	struct nxp_nand *nxp = mtd_to_nxp(mtd);
 	struct nand_chip *chip = mtd->priv;
 	struct nand_ecclayout *layout = &chip->ecc.layout[0];
 	struct nand_oobfree *oobfree  = layout->oobfree;
 	int ecctotal = chip->ecc.total;
 	int oobsize	 = mtd->oobsize;
+
 	printk("sw bch ecc %d bit, oob %2d, bad '0,1', ecc %d~%d (%d), free %d~%d (%d) ",
 		ECC_BCH_BITS, oobsize, oobfree->offset+oobfree->length, oobsize-1, ecctotal,
 		oobfree->offset, oobfree->length + 1, oobfree->length);
@@ -526,7 +545,7 @@ static irqreturn_t nxp_irq(int irq, void *_nxp)
 	int r;
 
 	if (CHECK_RnB() == CTRUE) {
-		// printk (" -- ECC\n");
+		// printk (" -- RnB\n");
 		CLEAR_RnB(r);
 
 		result = IRQ_HANDLED;
@@ -573,14 +592,14 @@ uint32_t wait_for_location_done(struct mtd_info *mtd)
 static int nand_probe(struct platform_device *pdev)
 {
 	struct nxp_nand_plat_data *pdata = dev_get_platdata(&pdev->dev);
-#ifdef CFG_NAND_ECCIRQ_MODE
-	int irq = 0; /* platform_get_irq(pdev, 0); */
-#endif
 	struct nxp_nand  *nxp;
 	struct mtd_info  *mtd;
 	struct nand_chip *chip;
 	int maxchips = CONFIG_SYS_NAND_MAX_CHIPS;
 	int chip_delay = !pdata ? 15 : (pdata->chip_delay ? pdata->chip_delay : 15);
+#ifdef CFG_NAND_ECCIRQ_MODE
+	int irq = 0; /* platform_get_irq(pdev, 0); */
+#endif
 	int ret = 0;
 
 	if (pdata == NULL)
@@ -611,10 +630,10 @@ static int nand_probe(struct platform_device *pdev)
 	chip->dev_ready 	= nand_dev_ready;
 	chip->select_chip 	= nand_select_chip;
 	chip->chip_delay 	= chip_delay;
-	chip->read_buf 		= nand_read_buf;
-	chip->write_buf 	= nand_write_buf;
+//	chip->read_buf 		= nand_read_buf;
+//	chip->write_buf 	= nand_write_buf;
 #if defined (CONFIG_MTD_NAND_ECC_BCH)
-	chip->write_page	= nand_bch_write_page;
+//	chip->write_page	= nand_bch_write_page;
 #endif
 
 #if defined (CONFIG_MTD_NAND_ECC_HW)
@@ -623,14 +642,14 @@ static int nand_probe(struct platform_device *pdev)
 #elif defined (CONFIG_MTD_NAND_ECC_BCH)
 	chip->ecc.mode 	 = NAND_ECC_SOFT_BCH;
 
-	/* refer to nand_ecc_xxx.c (nand_hwecc_init) */
+	/* refer to nand_ecc.c */
 	switch (ECC_BCH_BITS) {
 	case  4: chip->ecc.bytes =   7; chip->ecc.size  =  512; break;
 	case  8: chip->ecc.bytes =  13; chip->ecc.size  =  512; break;
-    case 12: chip->ecc.bytes =  20; chip->ecc.size  =  512; break;
+	case 12: chip->ecc.bytes =  20; chip->ecc.size  =  512; break;
 	case 16: chip->ecc.bytes =  26; chip->ecc.size  =  512; break;
 	case 24: chip->ecc.bytes =  42; chip->ecc.size  = 1024; break;
-	case 40: chip->ecc.bytes =  70; chip->ecc.size  = 1024; break;	/* not test */
+	case 40: chip->ecc.bytes =  70; chip->ecc.size  = 1024; break;
 //	case 60: chip->ecc.bytes = 105; chip->ecc.size  = 1024; break;	/* not test */
 	default:
 		printk("Fail: not supoort bch ecc %d mode !!!\n", ECC_BCH_BITS);
@@ -674,18 +693,71 @@ static int nand_probe(struct platform_device *pdev)
 //		platform_set_drvdata(pdev, chip);
 	}
 
+#ifdef CONFIG_NAND_RANDOMIZER
+	nxp->pages_per_block_mask = (mtd->erasesize/mtd->writesize) - 1;
+	if (!nxp->randomize_buf)
+		nxp->randomize_buf = kzalloc(mtd->writesize, GFP_KERNEL);
+	if (!nxp->randomize_buf) {
+		ERROUT("randomize buffer alloc failed\n");
+		goto err_something;
+	}
+#endif
+#ifdef CONFIG_MTD_NAND_VERIFY_WRITE
+	if (!nxp->verify_page)
+		nxp->verify_page = kzalloc(NAND_MAX_PAGESIZE, GFP_KERNEL);
+	if (!nxp->verify_page) {
+		ERROUT("verify buffer alloc failed\n");
+		goto err_something;
+	}
+#endif
+
 	nexell_nand_timing_set(mtd);
 
 	printk(KERN_NOTICE "%s: Nand partition \n", ret?"FAIL":"DONE");
 	return ret;
+
 err_something:
+#ifdef CONFIG_NAND_RANDOMIZER
+	if (nxp->randomize_buf)
+		kfree (nxp->randomize_buf);
+#endif
+#ifdef CONFIG_MTD_NAND_VERIFY_WRITE
+	if (nxp->verify_page)
+		kfree (nxp->verify_page);
+#endif
 	kfree(nxp);
 err_kzalloc:
 	return ret;
 }
 
+static int nand_remove(struct platform_device *pdev)
+{
+	struct nxp_nand  *nxp  = platform_get_drvdata(pdev);
+	struct mtd_info  *mtd  = &nxp->mtd;
+	int ret = 0;
+
+	nand_release(mtd);
+	if (nxp->irq)
+		free_irq(nxp->irq, nxp);
+#ifdef CONFIG_NAND_RANDOMIZER
+	if (nxp->randomize_buf)
+		kfree (nxp->randomize_buf);
+#endif
+#ifdef CONFIG_MTD_NAND_VERIFY_WRITE
+	if (nxp->verify_page)
+		kfree (nxp->verify_page);
+#endif
+#if defined (CONFIG_MTD_NAND_ECC_HW)
+	ret = nand_hw_ecc_fini_device(mtd);
+#endif
+	kfree(nxp);
+
+	return 0;
+}
+
 static struct platform_driver nand_driver = {
 	.probe		= nand_probe,
+	.remove		= nand_remove,
 	.resume		= nand_resume,
 	.driver		= {
 	.name		= DEV_NAME_NAND,

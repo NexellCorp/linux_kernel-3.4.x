@@ -599,10 +599,12 @@ static void refill_wl_user_pool(struct ubi_device *ubi)
 	return_unused_pool_pebs(ubi, pool);
 
 	for (pool->size = 0; pool->size < pool->max_size; pool->size++) {
+#ifndef (NO_UBI_PATCH)
+#else
 		if (!ubi->free.rb_node ||
 		   (ubi->free_count - ubi->beb_rsvd_pebs < 1))
 			break;
-
+#endif
 		pool->pebs[pool->size] = __wl_get_peb(ubi);
 		if (pool->pebs[pool->size] < 0)
 			break;
@@ -1069,6 +1071,10 @@ static int wear_leveling_worker(struct ubi_device *ubi, struct ubi_work *wrk,
 		if (!(e2->ec - e1->ec >= UBI_WL_THRESHOLD)) {
 			dbg_wl("no WL needed: min used EC %d, max free EC %d",
 			       e1->ec, e2->ec);
+#ifndef NO_UBI_PATCH
+			/* Give the unused PEB back */
+			wl_tree_add(e2, &ubi->free);
+#endif
 			goto out_cancel;
 		}
 		self_check_in_wl_tree(ubi, e1, &ubi->used);

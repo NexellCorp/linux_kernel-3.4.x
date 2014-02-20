@@ -71,6 +71,10 @@
 #include <linux/export.h>
 #include <linux/string.h>
 
+#include <mach/platform.h>
+#include <mach/devices.h>
+#include <mach/soc.h>
+
 #define BBT_BLOCK_GOOD		0x00
 #define BBT_BLOCK_WORN		0x01
 #define BBT_BLOCK_RESERVED	0x02
@@ -484,6 +488,54 @@ static int create_bbt(struct mtd_info *mtd, uint8_t *buf,
 		numblocks += startblock;
 		from = (loff_t)startblock << this->bbt_erase_shift;
 	}
+
+#ifdef CFG_MTD_NAND_BMT_FIRST_LAST
+	do {
+		loff_t offs = from;
+
+		/* check first page */
+		for (i = startblock; i < numblocks; i++) {
+			int ret;
+
+			BUG_ON(bd->options & NAND_BBT_NO_OOB);
+
+			ret = scan_block_fast(mtd, bd, from, buf, numpages);
+			if (ret < 0)
+				return ret;
+
+			if (ret) {
+				bbt_mark_entry(this, i, BBT_BLOCK_FACTORY_BAD);
+				mtd->ecc_stats.badblocks++;
+			}
+
+			from += (1 << this->bbt_erase_shift);
+		}
+
+		/* check last page */
+		from = offs;
+		from += mtd->erasesize - (mtd->writesize * numpages);
+
+		for (i = startblock; i < numblocks; i++) {
+			int ret;
+
+			BUG_ON(bd->options & NAND_BBT_NO_OOB);
+
+			ret = scan_block_fast(mtd, bd, from, buf, numpages);
+			if (ret < 0)
+				return ret;
+
+			if (ret) {
+				bbt_mark_entry(this, i, BBT_BLOCK_FACTORY_BAD);
+				mtd->ecc_stats.badblocks++;
+			}
+
+			from += (1 << this->bbt_erase_shift);
+		}
+
+		return 0;
+	} while (0);
+#endif
+
 
 	if (this->bbt_options & NAND_BBT_SCANLASTPAGE)
 		from += mtd->erasesize - (mtd->writesize * numpages);

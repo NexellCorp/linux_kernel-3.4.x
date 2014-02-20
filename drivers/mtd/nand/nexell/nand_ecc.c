@@ -63,6 +63,9 @@
 #define	NAND_READ_RETRY		(1)
 
 #include "nand_ecc.h"
+#ifdef CONFIG_NAND_RANDOMIZER
+#include "nx_randomizer.h"
+#endif
 
 
 /*
@@ -76,7 +79,7 @@ static int iNX_BCH_VAR_TMAX  = 24;			/* eccsize == 512 ? 24 : 60 */
 static struct NX_MCUS_RegisterSet * const _pNCTRL =
 	(struct NX_MCUS_RegisterSet *)IO_ADDRESS(PHY_BASEADDR_MCUSTOP_MODULE);
 
-static void __ecc_reset_decoder(void)
+static void inline __ecc_reset_decoder(void)
 {
 	_pNCTRL->NFCONTROL |= NX_NFCTRL_ECCRST;
 	// disconnect syndrome path
@@ -171,10 +174,10 @@ static int __ecc_get_err_location(unsigned int *pLocation)
 
 static inline void __ecc_setup_encoder(void)
 {
-	int iNX_BCH_VAR_R = ((((iNX_BCH_VAR_M * iNX_BCH_VAR_T)/8) - 1) & 0xFF);
+	int iNX_BCH_VAR_R = (((iNX_BCH_VAR_M * iNX_BCH_VAR_T)/8) - 1);
 
     NX_MCUS_SetNANDRWDataNum(iNX_BCH_VAR_K);
-    NX_MCUS_SetParityCount(((iNX_BCH_VAR_R + 7) / 8) - 1);
+    NX_MCUS_SetParityCount(iNX_BCH_VAR_R);
     NX_MCUS_SetNumOfELP(iNX_BCH_VAR_T);
 }
 
@@ -235,14 +238,14 @@ typedef char (*__msg_t)[64];
 #define P_TIME_START(A) \
 	do { \
 			iter = 0; \
-			memset(nxp->_page, 0, PAGE_SIZE); \
+			memset(nxp->timeelapse, 0, PAGE_SIZE); \
 			A = ktime_get(); \
 	} while (0);
 
 #define P_TIME(LOGIC, A, B)	\
 	do { \
 			B = ktime_get(); \
-			sprintf(((__msg_t)(nxp->_page))[iter++], "%20s [%lldus]", LOGIC, ktime_to_us(ktime_sub(B, A))); \
+			sprintf(((__msg_t)(nxp->timeelapse))[iter++], "%20s [%lldus]", LOGIC, ktime_to_us(ktime_sub(B, A))); \
 			A = B; \
 	} while (0)
 
@@ -251,10 +254,10 @@ typedef char (*__msg_t)[64];
 			int i; \
 			if ((__p_once++ % 1000)) break; \
 			for (i = 0; i < iter; ) { \
-				printk("%20s", ((__msg_t)(nxp->_page))[i++]); \
-				printk("%20s", ((__msg_t)(nxp->_page))[i++]); \
-				printk("%20s", ((__msg_t)(nxp->_page))[i++]); \
-				printk("%20s", ((__msg_t)(nxp->_page))[i++]); \
+				printk("%20s", ((__msg_t)(nxp->timeelapse))[i++]); \
+				printk("%20s", ((__msg_t)(nxp->timeelapse))[i++]); \
+				printk("%20s", ((__msg_t)(nxp->timeelapse))[i++]); \
+				printk("%20s", ((__msg_t)(nxp->timeelapse))[i++]); \
 				printk("\n"); \
 			} \
 	} while (0)
@@ -277,7 +280,7 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 	int eccsteps = chip->ecc.steps;
 	int eccbytes = chip->ecc.bytes;
 	int eccsize  = chip->ecc.size;
-	int eccrange = eccsteps * eccsize;
+	int eccrange = 8 * eccsize;
 
 	uint8_t  *ecccode = (uint8_t*)eccbuff;
 	uint32_t *eccpos = chip->ecc.layout->eccpos;
@@ -289,9 +292,10 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 	uint32_t corrected = 0, failed = 0;
 	uint32_t max_bitflips = 0;
 #endif
+	int is_erasedpage = 0;
+	struct nxp_nand *nxp = mtd_to_nxp(mtd);
 
 #ifdef _TIME_ELAPSE_
-	struct nxp_nand *nxp = mtd_to_nxp(mtd);
 	ktime_t time_start, time_end;
 	int iter;
 	static int __p_once = 1;
@@ -306,6 +310,7 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 #ifndef NO_ISSUE_MTD_BITFLIP_PATCH	/* freestyle@2013.09.26 */
 		corrected = failed = 0;
 #endif
+		is_erasedpage = 0;
 
 		P_TIME_START(time_start);
 
@@ -317,9 +322,6 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 			chip->read_buf(mtd, chip->oob_poi, mtd->oobsize);
 			chip->cmdfunc(mtd, NAND_CMD_READ0, 0, page);
 		}
-
-
-		P_TIME("Read OOB", time_start, time_end);
 
 		for (n = 0; eccsteps; eccsteps--, p += eccsize) {
 
@@ -342,23 +344,33 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 			P_TIME("after read_buf", time_start, time_end);
 			__ecc_wait_for_decode();
 			P_TIME("dec done", time_start, time_end);
-			err = __ecc_decode_error();
 
+			err = __ecc_decode_error();
 			if (err) {
 				/* check erase status */
 				for (i = 0 ; eccbytes > i; i++)
 					if (0xFF != ecccode[i]) break;
-				if (i == eccbytes)
+				if (i == eccbytes) {
+					is_erasedpage = 1;
 					continue;
+				}
 
 				__ecc_start_correct(eccsize);
 
 #ifdef CFG_NAND_ECCIRQ_MODE
-					wait_for_location_done(mtd);
+				wait_for_location_done(mtd);
 #else
-					__ecc_wait_for_correct();
+				__ecc_wait_for_correct();
 #endif
 				P_TIME("before correct", time_start, time_end);
+
+#if (0)
+				if (((_pNCTRL->NFECCSTATUS & NX_NFECCSTATUS_ELPERR) >>  16) >= chip->ecc.strength)
+					printk ("  page: %d, step:%d, numerr: %d, elperr: %d\n", page, 
+							(chip->ecc.steps-eccsteps),
+							((_pNCTRL->NFECCSTATUS & NX_NFECCSTATUS_NUMERR) >>  4),
+							((_pNCTRL->NFECCSTATUS & NX_NFECCSTATUS_ELPERR) >> 16));
+#endif
 
 				/* correct Error */
 				errcnt = __ecc_get_err_location((unsigned int *)errpos);
@@ -399,6 +411,15 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 				}
 			}
 		}
+
+#ifdef CONFIG_NAND_RANDOMIZER
+		if (!is_erasedpage)
+		{
+			randomizer_page (page & nxp->pages_per_block_mask, buf, mtd->writesize);
+			//printk("  page: %d ------->    derandomize\n", page);
+		}
+#endif
+
 		P_TIME("ALL DONE", time_start, time_end);
 		P_TIME_DONE();
 
@@ -432,12 +453,12 @@ retry_rd:
 static void nand_hw_ecc_write_page(struct mtd_info *mtd, struct nand_chip *chip,
 				  const uint8_t *buf, int oob_required)
 {
-	int i, n;
+	int i;
 	int eccsteps = chip->ecc.steps;
 	int eccbytes = chip->ecc.bytes;
 	int eccsize  = chip->ecc.size;
 
-	uint8_t  *ecccode = (uint8_t*)eccbuff;
+	uint8_t *ecc_calc = chip->buffers->ecccalc;
 	uint32_t *eccpos   = chip->ecc.layout->eccpos;
 	uint8_t  *p = (uint8_t *)buf;
 
@@ -446,21 +467,18 @@ static void nand_hw_ecc_write_page(struct mtd_info *mtd, struct nand_chip *chip,
     __ecc_setup_encoder();
 
 	/* write data and get ecc */
-	for (n = 0; eccsteps; eccsteps--, p += eccsize) {
-		memset (eccbuff, 0x00, sizeof eccbuff);
-
+	for (i = 0; eccsteps; eccsteps--, i += eccbytes, p += eccsize) {
 		__ecc_encode_enable();
 
 		chip->write_buf(mtd, p, eccsize);
 
 		/* get ecc code from ecc register */
 		__ecc_wait_for_encode();
-		__ecc_read_ecc_encode((uint32_t *)ecccode, eccbytes);
-
-		/* set oob with ecc */
-		for (i = 0; i < eccbytes; i++, n++)
-			chip->oob_poi[eccpos[n]] = ecccode[i];
+		__ecc_read_ecc_encode((uint32_t *)(&ecc_calc[i]), eccbytes);
 	}
+	/* set oob with ecc */
+	for (i = 0; i < chip->ecc.total; i++)
+		chip->oob_poi[eccpos[i]] = ecc_calc[i];
 
 	/* write oob */
 	chip->write_buf(mtd, chip->oob_poi, mtd->oobsize);
@@ -469,20 +487,33 @@ static void nand_hw_ecc_write_page(struct mtd_info *mtd, struct nand_chip *chip,
 static int nand_hw_write_page(struct mtd_info *mtd, struct nand_chip *chip,
 			   const uint8_t *buf, int oob_required, int page, int cached, int raw)
 {
+	struct nxp_nand *nxp = mtd_to_nxp(mtd);
 #ifdef CONFIG_MTD_NAND_VERIFY_WRITE
-	struct mtd_ecc_stats stats;
 	int ret = 0;
 #endif
 	int status;
+	uint8_t *p = (uint8_t *)buf;
+
+#ifdef CONFIG_NAND_RANDOMIZER
+	p = nxp->randomize_buf;
+	memcpy (p, buf, mtd->writesize);
+
+	nxp->nowpage = page & nxp->pages_per_block_mask;
+	randomizer_page (nxp->nowpage, p, mtd->writesize);
+	//printk("  page: %d ------->    randomize\n", page);
+#endif
 
 	DBGOUT("%s page %d, raw=%d\n", __func__, page, raw);
 	chip->cmdfunc(mtd, NAND_CMD_SEQIN, 0x00, page);
+
+	/* for hynix H27UBG8T2BTR */
+	//ndelay(200);
 
 	/* not verify */
 	if (raw)
 		chip->ecc.write_page_raw(mtd, chip, buf, oob_required);
 	else
-		chip->ecc.write_page(mtd, chip, buf, oob_required);
+		chip->ecc.write_page(mtd, chip, p, oob_required);
 
 	/*
 	 * Cached progamming disabled for now, Not sure if its worth the
@@ -513,15 +544,22 @@ static int nand_hw_write_page(struct mtd_info *mtd, struct nand_chip *chip,
 	if (raw)
 		return 0;
 
-	stats = mtd->ecc_stats;
 	/* Send command to read back the data */
 	chip->cmdfunc(mtd, NAND_CMD_READ0, 0, page);
-	ret = nand_hw_ecc_read_page(mtd, chip, (uint8_t *)buf, oob_required, page);
-	if (ret)
-		return ret;
+	ret = chip->ecc.read_page(mtd, chip, (uint8_t *)nxp->verify_page, oob_required, page);
+	if (ret < 0)
+	{
+		ERROUT ("  read page (%d) for write-verify failed!\n", page);
+		return -EIO; //		return ret;
+	}
 
-	if (mtd->ecc_stats.failed - stats.failed)
-		return -EBADMSG;	// EBADMSG
+	if (memcmp (nxp->verify_page, buf, mtd->writesize))
+	{
+		ERROUT ("%s fail verify %d page\n", __func__, page);
+		return -EIO;
+	}
+
+	chip->cmdfunc(mtd, NAND_CMD_STATUS, -1, -1);
 #endif
 	return 0; // mtd->ecc_stats.corrected - stats.corrected ? -EUCLEAN : 0
 }
@@ -621,6 +659,7 @@ int nand_hw_ecc_init_device(struct mtd_info *mtd)
 
 		return 0;
 	}
+	spin_lock_init (&nxp->cmdlock);
 
 	/*
 	 * HW ECC bytes:
@@ -673,9 +712,10 @@ int nand_hw_ecc_init_device(struct mtd_info *mtd)
 	nxp->eccmode = eccmode;
 
 #ifdef _TIME_ELAPSE_
-	nxp->_page = kzalloc(PAGE_SIZE, GFP_KERNEL);
-	if (!nxp->_page) {
-		printk("page alloc failed\n");
+	if (!nxp->timeelapse)
+		nxp->timeelapse = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!nxp->timeelapse) {
+		ERROUT("page alloc failed\n");
 		goto _ecc_fail;
 	}
 #endif
@@ -694,7 +734,7 @@ int nand_hw_ecc_init_device(struct mtd_info *mtd)
 	chip->ecc.write_page 	= nand_hw_ecc_write_page;
 	chip->write_page		= nand_hw_write_page;
 #ifndef NO_ISSUE_MTD_BITFLIP_PATCH	/* freestyle@2013.09.26 */
-	chip->ecc.strength		= eccbyte * 8 / fls (8*eccsize);
+	chip->ecc.strength		= ((eccbyte * 8 / fls (8*eccsize)) * 80 / 100);
 #endif
 
 	NX_MCUS_ResetNFECCBlock();
@@ -705,6 +745,18 @@ int nand_hw_ecc_init_device(struct mtd_info *mtd)
 _ecc_fail:
 	printk("Fail: not support ecc %d bits for pagesize %d !!!\n", ECC_HW_BITS, eccsize);
 	return -EINVAL;
+}
+
+int nand_hw_ecc_fini_device(struct mtd_info *mtd)
+{
+#ifdef _TIME_ELAPSE_
+	struct nxp_nand *nxp = mtd_to_nxp(mtd);
+
+	if (nxp->timeelapse)
+		kfree (nxp->timeelapse);
+#endif
+
+	return 0;
 }
 #endif /* CONFIG_MTD_NAND_ECC_HW */
 

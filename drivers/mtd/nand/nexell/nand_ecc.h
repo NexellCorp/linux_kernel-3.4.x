@@ -41,9 +41,11 @@
 #define NX_NFCTRL_ECCMODE_S24		(5U<<27)
 #define NX_NFCTRL_ECCMODE_60		(7U<<27)
 #define NX_NFCTRL_IRQPEND			(1U<<15)
+#define NX_NFCTRL_ECCIRQPEND		(1U<<14)
 #define NX_NFCTRL_ECCRST			(1U<<11)
 #define NX_NFCTRL_RNB				(1U<< 9)
 #define NX_NFCTRL_IRQENB			(1U<< 8)
+#define NX_NFCTRL_ECCIRQENB			(1U<< 7)
 #define NX_NFCTRL_HWBOOT_W			(1U<< 6)
 #define NX_NFCTRL_EXSEL_R			(1U<< 6)
 #define NX_NFCTRL_EXSEL_W			(1U<< 5)
@@ -62,14 +64,12 @@
 
 #define NX_NFECCCTRL_RUNECC_W		28	// ecc start
 #define NX_NFECCCTRL_DECMODE_R		28
-#define NX_NFECCCTRL_DECMODE_W		26
+#define NX_NFECCCTRL_DECMODE_W		26	// 0: encoder 1: decoder
 #define NX_NFECCCTRL_ELPLOAD		27	// set after elp registers
 #define NX_NFECCCTRL_ERRNUM			25
-//#define NX_NFECCCTRL_DECMODE		24	// 0: encoder 1: decoder
 #define NX_NF_ENCODE			0
 #define NX_NF_DECODE			1
 #define NX_NFECCCTRL_ZEROPAD		22
-//#define NX_NFECCCTRL_RUNECC			21	// ecc start
 #define NX_NFECCCTRL_ELPNUM			18	// number of elp (0x7F)
 #define NX_NFECCCTRL_PDATACNT		10	// number of parity bit (0xFF)
 #define NX_NFECCCTRL_DATACNT		0	// nand data count value(write) (0x3FF)
@@ -85,8 +85,17 @@ struct nxp_nand {
 	unsigned int irq;
 	int irqcond;
 	int eccmode;
+	spinlock_t cmdlock;
+#ifdef CONFIG_NAND_RANDOMIZER
+	uint8_t *randomize_buf;
+	uint32_t nowpage;
+	uint32_t pages_per_block_mask;
+#endif
+#ifdef CONFIG_MTD_NAND_VERIFY_WRITE
+	uint8_t *verify_page;
+#endif
 #ifdef _TIME_ELAPSE_
-	char *_page;
+	char *timeelapse;
 #endif
 };
 
@@ -98,6 +107,7 @@ uint32_t wait_for_location_done(struct mtd_info *mtd);
 
 #if defined(CONFIG_MTD_NAND_ECC_HW)
 int nand_hw_ecc_init_device (struct mtd_info *nand);
+int nand_hw_ecc_fini_device (struct mtd_info *nand);
 int nand_ecc_layout_hwecc(struct mtd_info *mtd);
 #endif
 

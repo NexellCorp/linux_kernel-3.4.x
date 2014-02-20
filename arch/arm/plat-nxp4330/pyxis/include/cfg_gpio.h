@@ -267,10 +267,5 @@
 #define CFG_IO_AUDIO_AMP_POWER				(PAD_GPIO_A + 23)		/* GPIO */
 
 
-/*------------------------------------------------------------------------------
- *	GPIO NAND
- */
-#define CFG_IO_NAND_nWP						(PAD_GPIO_C + 27)		/* GPIO */
-
 #endif	/* __CFG_GPIO_H__ */
 

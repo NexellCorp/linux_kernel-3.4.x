@@ -620,6 +620,15 @@ config MTD_NAND_ECC_HW
 	  Enable the use of the NX series's internal ECC generator when
 	  using NAND.
 
+config NAND_RANDOMIZER
+	bool "Support for RANDOMIZER"
+	depends on MTD_NAND_ECC_HW
+	default y
+	help
+	  Enable the use of the RANDOMIZER (SW).
+
+	  If unsure, say Y
+
 config MTD_NAND_MANUAL_ELP_PATH
 	bool "Support for manual ELP path"
 	depends on MTD_NAND_ECC_HW
