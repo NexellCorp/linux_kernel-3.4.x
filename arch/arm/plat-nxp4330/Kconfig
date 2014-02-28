@@ -32,11 +32,6 @@ choice
 		help
    	 		Support for the android smart box board.
 
-	config PLAT_NXP4330_CADENCE
-		bool "CADENCE: Android Cadence board"
-		help
-   	 		Support for the android cadence board.
-
 	config PLAT_NXP4330_PYXIS
 		bool "PYXIS: Android Pyxis board"
 		help
