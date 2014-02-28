@@ -45,10 +45,12 @@ static void (*do_suspend)(ulong, ulong) = NULL;
 #endif
 
 struct save_gpio {
-	unsigned long output;	/* 0x04 */
-	unsigned long alfn[2];	/* 0x20, 0x24 */
-	unsigned long mode[3];	/* 0x08, 0x0C, 0x28 */
-	unsigned long mask;		/* 0x10, 0x3C */
+	unsigned long data;			/* 0x00 */
+	unsigned long output;		/* 0x04 */
+	unsigned long alfn[2];		/* 0x20, 0x24 */
+	unsigned long mode[3];		/* 0x08, 0x0C, 0x28 */
+	unsigned long mask;			/* 0x10, 0x3C */
+	unsigned long reg_val[10]; /* 0x40 ~ 0x64 */
 };
 
 struct save_l2c {
@@ -403,10 +405,11 @@ static void suspend_gpio(suspend_state_t stat)
 {
 	struct save_gpio *gpio = saved_regs.gpio;
 	unsigned int base = IO_ADDRESS(PHY_BASEADDR_GPIOA);
-	int i = 0, size = 5;
+	int i = 0, j = 0, size = 5;
 
 	if (SUSPEND_SUSPEND == stat) {
 		for (i = 0; size > i; i++, gpio++, base += 0x1000) {
+			gpio->data    = readl(base+0x00);
 			gpio->output  = readl(base+0x04);
 			gpio->alfn[0] = readl(base+0x20);
 			gpio->alfn[1] = readl(base+0x24);
@@ -414,11 +417,21 @@ static void suspend_gpio(suspend_state_t stat)
 			gpio->mode[1] = readl(base+0x0C);
 			gpio->mode[2] = readl(base+0x28);
 			gpio->mask = readl(base+0x10);
+
+			for (j = 0; j < 10; j++) 
+				gpio->reg_val[j] = readl(base+0x40+(j<<2));
+			
+
 			writel((-1UL), (base+0x14));	/* clear pend */
 		}
 	} else {
 		for (i = 0; size > i; i++, gpio++, base += 0x1000) {
+
+			for (j = 0; j < 10; j++) 
+				writel(gpio->reg_val[j], (base+0x40+(j<<2)));
+			
 			writel(gpio->output, (base+0x04));
+			writel(gpio->data  , (base+0x00));
 			writel(gpio->alfn[0],(base+0x20));
 			writel(gpio->alfn[1],(base+0x24));
 			writel(gpio->mode[0],(base+0x08));

@@ -15,10 +15,6 @@ ifeq ($(CONFIG_PLAT_NXP4330_SMARTBOX),y)
 PLATBOARD :=smartbox
 endif
 
-ifeq ($(CONFIG_PLAT_NXP4330_CADENCE),y)
-PLATBOARD :=cadence
-endif
-
 ifeq ($(CONFIG_PLAT_NXP4330_PYXIS),y)
 PLATBOARD :=pyxis
 endif
