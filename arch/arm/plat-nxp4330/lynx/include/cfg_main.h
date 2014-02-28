@@ -54,7 +54,7 @@
  * 	Nand (HWECC)
  */
 #define CFG_NAND_ECC_BYTES 						1024
-#define CFG_NAND_ECC_BITS               		24			/* 512 - 4,8,16,24 1024 - 24,40,60 */
+#define CFG_NAND_ECC_BITS               		40			/* 512 - 4,8,16,24 1024 - 24,40,60 */
 //#define CFG_NAND_ECCIRQ_MODE
 //#define CFG_MTD_NAND_BMT_FIRST_LAST
 
@@ -310,6 +310,7 @@
 //                      ( _name_ , bw, tACS tCOS tACC tSACC tOCH tCAH, wm, rb, wb )
 CFG_SYS_STATICBUS_CONFIG( STATIC0 ,  8,    1,   1,   6,    6,   1,   1,  1,  0,  0 )		// 0x0000_0000
 CFG_SYS_STATICBUS_CONFIG( STATIC1 ,  8,    6,   6,  32,   32,   6,   6,  1,  0,  0 )		// 0x0400_0000
-CFG_SYS_STATICBUS_CONFIG(    NAND ,  8,    0,   3,   9,    1,   3,   0,  1,  0,  0 )		// 0x2C00_0000, tOCH, tCAH must be greter than 0
+CFG_SYS_STATICBUS_CONFIG(    NAND ,  8,    0,   6,  10,    1,   4,   0,  1,  0,  0 )		// 0x2C00_0000, tOCH, tCAH must be greter than 0 (BCLK:400MHz)
+//CFG_SYS_STATICBUS_CONFIG(    NAND ,  8,    0,   4,   7,    1,   3,   0,  1,  0,  0 )		// 0x2C00_0000, tOCH, tCAH must be greter than 0 (BCLK:250MHz)
 
 #endif /* __CFG_MAIN_H__ */
