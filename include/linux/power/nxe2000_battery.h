@@ -117,7 +117,7 @@ enum SupplyState {
 	SUPPLY_STATE_BAT = 0,
 	SUPPLY_STATE_ADP,
 	SUPPLY_STATE_USB,
-} ;
+};
 
 enum ExternalDeviceType {
 	EXTIF_TYPE_SDP = 0,
@@ -125,6 +125,13 @@ enum ExternalDeviceType {
 	EXTIF_TYPE_DCP,
 	EXTIF_TYPE_IRP,
 	EXTIF_TYPE_OTHERS,
+};
+
+enum InputPowerType {
+	INPUT_POWER_TYPE_ADP = 0,			// Support only VADP. Do not supported USB ADP.
+	INPUT_POWER_TYPE_UBC,				// Support only VUSB. (USB connector - USB ADP & PC)
+	INPUT_POWER_TYPE_ADP_UBC,			// Using VADP, VUSB power path. Separated power path.
+	INPUT_POWER_TYPE_ADP_UBC_LINKED,	// Using VADP, VUSB power path. Linked power path.
 };
 
 struct nxe2000_battery_type_data {
@@ -153,6 +160,8 @@ struct nxe2000_battery_platform_data {
 	int	irq;
 	int	alarm_vol_mv;
 	int	multiple;
+
+	int	input_power_type;
 
 	int	gpio_otg_usbid;
 	int	gpio_otg_vbus;

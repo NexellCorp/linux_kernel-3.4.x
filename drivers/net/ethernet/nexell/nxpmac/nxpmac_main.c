@@ -46,6 +46,8 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #endif
+#include <linux/ctype.h>
+
 #include "nxpmac.h"
 
 #undef NXPMAC_DEBUG
@@ -128,6 +130,8 @@ MODULE_PARM_DESC(tmrate, "External timer freq. (default: 256Hz)");
 static int buf_sz = DMA_BUFFER_SIZE;
 module_param(buf_sz, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(buf_sz, "DMA buffer size");
+
+static int getaddr[6];
 
 static const u32 default_msg_level = (NETIF_MSG_DRV | NETIF_MSG_PROBE |
 				      NETIF_MSG_LINK | NETIF_MSG_IFUP |
@@ -321,17 +325,35 @@ static int stmmac_init_phy(struct net_device *dev)
 
 	/* Stop Advertising 1000BASE Capability if interface is not GMII */
 	if ((interface == PHY_INTERFACE_MODE_MII) ||
-	    (interface == PHY_INTERFACE_MODE_RMII))
+		(interface == PHY_INTERFACE_MODE_RMII))
 		phydev->advertising &= ~(SUPPORTED_1000baseT_Half |
 					 SUPPORTED_1000baseT_Full);
 
-#if 1   // by Kook
-	if (priv->plat->autoneg == AUTONEG_DISABLE) {
-		phydev->autoneg = priv->plat->autoneg;
-		phydev->speed   = priv->plat->speed;
-		phydev->duplex  = priv->plat->duplex;
+	if ((priv->plat->autoneg == AUTONEG_DISABLE) &&
+		(priv->plat->speed != SPEED_1000))
+	{
+		unsigned ctrl1000 = 0;
+		unsigned features;
+
+		phydev->drv->features &= ~(SUPPORTED_1000baseT_Half |
+					 SUPPORTED_1000baseT_Full);
+
+		features = phydev->drv->features;
+
+		/* force master mode for 1000BaseT due to chip errata */
+		if (features & SUPPORTED_1000baseT_Half)
+			ctrl1000 |= ADVERTISE_1000HALF;
+		if (features & SUPPORTED_1000baseT_Full)
+			ctrl1000 |= ADVERTISE_1000FULL;
+		phydev->advertising = phydev->supported = features;
+		phy_write(phydev, MII_CTRL1000, ctrl1000);
+
+		genphy_config_aneg(phydev);
 	}
-#endif
+
+	phydev->autoneg = priv->plat->autoneg;
+	phydev->speed   = priv->plat->speed;
+	phydev->duplex  = priv->plat->duplex;
 
 	/*
 	 * Broken HW is sometimes missing the pull-up resistor on the
@@ -426,27 +448,27 @@ static void init_dma_desc_rings(struct net_device *dev)
 #endif
 
 	DBG(probe, INFO, "stmmac: txsize %d, rxsize %d, bfsize %d\n",
-	    txsize, rxsize, bfsize);
+		txsize, rxsize, bfsize);
 
 	priv->rx_skbuff_dma = kmalloc_array(rxsize, sizeof(dma_addr_t),
-					    GFP_KERNEL);
+						GFP_KERNEL);
 	priv->rx_skbuff = kmalloc_array(rxsize, sizeof(struct sk_buff *),
-					GFP_KERNEL);
+						GFP_KERNEL);
 
 	priv->dma_rx =
-	    (struct dma_desc *)dma_alloc_coherent(priv->device,
-						  rxsize *
-						  sizeof(struct dma_desc),
-						  &priv->dma_rx_phy,
-						  GFP_KERNEL);
+		(struct dma_desc *)dma_alloc_coherent(priv->device,
+							rxsize *
+							sizeof(struct dma_desc),
+							&priv->dma_rx_phy,
+							GFP_KERNEL);
 	priv->tx_skbuff = kmalloc(sizeof(struct sk_buff *) * txsize,
-				       GFP_KERNEL);
+						GFP_KERNEL);
 	priv->dma_tx =
-	    (struct dma_desc *)dma_alloc_coherent(priv->device,
-						  txsize *
-						  sizeof(struct dma_desc),
-						  &priv->dma_tx_phy,
-						  GFP_KERNEL);
+		(struct dma_desc *)dma_alloc_coherent(priv->device,
+							txsize *
+							sizeof(struct dma_desc),
+							&priv->dma_tx_phy,
+							GFP_KERNEL);
 
 	if ((priv->dma_rx == NULL) || (priv->dma_tx == NULL)) {
 		pr_err("%s:ERROR allocating the DMA Tx/Rx desc\n", __func__);
@@ -1850,6 +1872,8 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
 	/* Verify driver arguments */
 	stmmac_verify_args();
 
+	memcpy(priv->dev->dev_addr, getaddr, 6);
+
 	/* Override with kernel parameters if supplied XXX CRS XXX
 	 * this needs to have multiple instances
 	 */
@@ -2021,6 +2045,53 @@ int stmmac_restore(struct net_device *ndev)
 #endif /* CONFIG_PM */
 
 #ifndef MODULE
+int nxp_strict_strtomac(const char *cp, int scale, char *res)
+{
+	int flag_counting = 0;
+	int flag_upper_value = 0;
+	char value, decimals = 0;
+
+	if (scale)
+		flag_counting = 1;
+
+	flag_upper_value = 0;
+
+	while (1)
+	{
+		if (*cp == '.')
+		{
+			flag_upper_value = 0;
+		}
+		else
+		{
+			value = isdigit(*cp) ? (*cp-'0') : (toupper(*cp)-'A'+10);
+
+			if (flag_upper_value == 0)
+				decimals = value * 0x10;
+			else
+				*res++ = (decimals + value);
+
+			flag_upper_value++;
+		}
+
+		if(flag_counting)
+		{
+			scale--;
+			if (scale == 0)
+				break;
+		}
+		else
+		{
+			if ( (*cp == 0) || (*cp == ',') )
+				break;
+		}
+
+		cp++;
+	}
+
+	return 0;
+}
+
 static int __init stmmac_cmdline_opt(char *str)
 {
 	char *opt;
@@ -2067,6 +2138,9 @@ static int __init stmmac_cmdline_opt(char *str)
 					   (unsigned long *)&tmrate))
 				goto err;
 #endif
+		} else if (!strncmp(opt, "ethaddr:", 8)) {
+			if (nxp_strict_strtomac(opt + 8, 0, (char *)&getaddr[0]))
+				goto err;
 		}
 	}
 	return 0;

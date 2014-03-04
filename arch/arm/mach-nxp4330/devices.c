@@ -950,6 +950,10 @@ EXPORT_SYMBOL(otg_clk_disable);
 /* Initializes OTG Phy. */
 void otg_phy_init(void)
 {
+    u32 temp;
+
+    PM_DBGOUT("+%s\n", __func__);
+
     writel(readl(SOC_VA_RSTCON + 0x3C) & ~0xF800, SOC_VA_RSTCON + 0x3C);
 
     // 1. Release otg common reset
@@ -957,8 +961,6 @@ void otg_phy_init(void)
     udelay(10);
     writel(readl(SOC_VA_RSTCON + 0x04) |  (1<<25), SOC_VA_RSTCON + 0x04);     // reset off
     udelay(10);
-
-    writel(readl(SOC_VA_TIEOFF + 0x34) |  (3<<7), SOC_VA_TIEOFF + 0x34);
 
     // 2. Program scale mode to real mode
     writel(readl(SOC_VA_TIEOFF + 0x30) & ~(3<<0), SOC_VA_TIEOFF + 0x30);
@@ -977,23 +979,39 @@ void otg_phy_init(void)
     writel(readl(SOC_VA_TIEOFF + 0x34) & ~(3<<24), SOC_VA_TIEOFF + 0x34);   /* Select VBUS 5V */
 
     // 5. POR of PHY
-    writel(readl(SOC_VA_TIEOFF + 0x34) |  (3<<7), SOC_VA_TIEOFF + 0x34);
-    udelay(10);
+#if 0
+#if 0
     writel(readl(SOC_VA_TIEOFF + 0x34) & ~(2<<7), SOC_VA_TIEOFF + 0x34);
+    writel(readl(SOC_VA_TIEOFF + 0x34) |  (1<<7), SOC_VA_TIEOFF + 0x34);
+#else
+    writel(readl(SOC_VA_TIEOFF + 0x34) & ~(3<<7), SOC_VA_TIEOFF + 0x34);
+    writel(readl(SOC_VA_TIEOFF + 0x34) |  (1<<7), SOC_VA_TIEOFF + 0x34);
+#endif
+#else
+
+    temp    = readl(SOC_VA_TIEOFF + 0x34);
+    temp   &= ~(3<<7);
+    temp   |=  (1<<7);
+    writel(temp, SOC_VA_TIEOFF + 0x34);
+#endif
     udelay(40); // 40us delay need.
 
     // 6. UTMI reset
     writel(readl(SOC_VA_TIEOFF + 0x34) | (1<<3), SOC_VA_TIEOFF + 0x34);
-    udelay(10); // 10 clock need
+    udelay(1);  // 10 clock need
 
     // 7. AHB reset
     writel(readl(SOC_VA_TIEOFF + 0x34) | (1<<2), SOC_VA_TIEOFF + 0x34);
-    udelay(10); // 10 clock need
+    udelay(1);  // 10 clock need
 }
 EXPORT_SYMBOL(otg_phy_init);
 
 void otg_phy_off(void)
 {
+    u32 temp;
+
+    PM_DBGOUT("+%s\n", __func__);
+
     // 0. Select VBUS
     writel(readl(SOC_VA_TIEOFF + 0x34) |  (3<<24), SOC_VA_TIEOFF + 0x34);   /* Select VBUS 3.3V */
 //    writel(readl(SOC_VA_TIEOFF + 0x34) & ~(3<<24), SOC_VA_TIEOFF + 0x34);   /* Select VBUS 5V */
@@ -1007,7 +1025,21 @@ void otg_phy_off(void)
     udelay(10); // 10 clock need
 
     // 3. POR of PHY
+#if 0
+#if 0
+    writel(readl(SOC_VA_TIEOFF + 0x34) |  (3<<7), SOC_VA_TIEOFF + 0x34);
+    writel(readl(SOC_VA_TIEOFF + 0x34) & ~(1<<7), SOC_VA_TIEOFF + 0x34);
+#else
     writel(readl(SOC_VA_TIEOFF + 0x34) & ~(3<<7), SOC_VA_TIEOFF + 0x34);
+    writel(readl(SOC_VA_TIEOFF + 0x34) |  (2<<7), SOC_VA_TIEOFF + 0x34);
+#endif
+#else
+
+    temp    = readl(SOC_VA_TIEOFF + 0x34);
+    temp   &= ~(3<<7);
+    temp   |=  (2<<7);
+    writel(temp, SOC_VA_TIEOFF + 0x34);
+#endif
     udelay(10); // 40us delay need.
 
     // 4. Release otg common reset
@@ -1018,6 +1050,8 @@ EXPORT_SYMBOL(otg_phy_off);
 
 void otg_phy_suspend(void)
 {
+    u32 temp;
+
     // 0. Select VBUS
     writel(readl(SOC_VA_TIEOFF + 0x34) |  (3<<24), SOC_VA_TIEOFF + 0x34);   /* Select VBUS 3.3V */
 //    writel(readl(SOC_VA_TIEOFF + 0x34) & ~(3<<24), SOC_VA_TIEOFF + 0x34);   /* Select VBUS 5V */
@@ -1039,13 +1073,27 @@ void otg_phy_suspend(void)
     udelay(10);
 
     // 4. POR of PHY
+#if 0
+#if 0
+    writel(readl(SOC_VA_TIEOFF + 0x34) |  (2<<7), SOC_VA_TIEOFF + 0x34);
+    writel(readl(SOC_VA_TIEOFF + 0x34) & ~(1<<7), SOC_VA_TIEOFF + 0x34);
+#else
     writel(readl(SOC_VA_TIEOFF + 0x34) & ~(3<<7), SOC_VA_TIEOFF + 0x34);
+    writel(readl(SOC_VA_TIEOFF + 0x34) |  (2<<7), SOC_VA_TIEOFF + 0x34);
+#endif
+#else
+
+    temp    = readl(SOC_VA_TIEOFF + 0x34);
+    temp   &= ~(3<<7);
+    temp   |=  (2<<7);
+    writel(temp, SOC_VA_TIEOFF + 0x34);
+#endif
     udelay(40); // 40us delay need.
 }
 EXPORT_SYMBOL(otg_phy_suspend);
 
 static struct resource otg_resources[] = {
-    [0] = DEFINE_RES_MEM(PHY_BASEADDR_HSOTG, SZ_256),
+    [0] = DEFINE_RES_MEM(PHY_BASEADDR_HSOTG, SZ_128K),
     [1] = DEFINE_RES_IRQ(IRQ_PHY_USB20OTG),
 };
 

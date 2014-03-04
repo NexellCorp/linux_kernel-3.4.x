@@ -273,9 +273,13 @@ static ssize_t adb_read(struct file *fp, char __user *buf,
 	int maxp;
 	int ret;
 
-	pr_debug("adb_read(%d)\n", count);
 	if (!_adb_dev)
 		return -ENODEV;
+
+	maxp = usb_endpoint_maxp(dev->ep_out->desc);
+	count = round_up(count, maxp);
+	if (count > ADB_BULK_BUFFER_SIZE)
+		return -EINVAL;
 
 	if (adb_lock(&dev->read_excl))
 		return -EBUSY;
@@ -294,12 +298,6 @@ static ssize_t adb_read(struct file *fp, char __user *buf,
 		r = -EIO;
 		goto done;
 	}
-
-	maxp = usb_endpoint_maxp(dev->ep_out->desc);
-	count = round_up(count, maxp);
-
-	if (count > ADB_BULK_BUFFER_SIZE)
-		return -EINVAL;
 
 requeue_req:
 	/* queue a request */
@@ -436,6 +434,10 @@ static int adb_release(struct inode *ip, struct file *fp)
 
 	adb_closed_callback();
 
+	// psw0523 add
+#ifdef CONFIG_PM
+	if (_adb_dev)
+#endif	// end psw0523
 	adb_unlock(&_adb_dev->open_excl);
 	return 0;
 }
@@ -454,9 +456,6 @@ static struct miscdevice adb_device = {
 	.name = adb_shortname,
 	.fops = &adb_fops,
 };
-
-
-
 
 static int
 adb_function_bind(struct usb_configuration *c, struct usb_function *f)
@@ -500,7 +499,6 @@ adb_function_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct adb_dev	*dev = func_to_adb(f);
 	struct usb_request *req;
-
 
 	dev->online = 0;
 	dev->error = 1;

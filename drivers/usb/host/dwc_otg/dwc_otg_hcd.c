@@ -849,6 +849,7 @@ static void dwc_otg_hcd_free(dwc_otg_hcd_t * dwc_otg_hcd)
 		}
 	} else if (dwc_otg_hcd->status_buf != NULL) {
 		DWC_FREE(dwc_otg_hcd->status_buf);
+		dwc_otg_hcd->status_buf = NULL;
 	}
 	DWC_SPINLOCK_FREE(dwc_otg_hcd->channel_lock);
 	DWC_SPINLOCK_FREE(dwc_otg_hcd->lock);
@@ -866,6 +867,7 @@ static void dwc_otg_hcd_free(dwc_otg_hcd_t * dwc_otg_hcd)
 	}
 #endif
 	DWC_FREE(dwc_otg_hcd);
+	dwc_otg_hcd = NULL;
 }
 
 int init_hcd_usecs(dwc_otg_hcd_t *_hcd);
@@ -879,11 +881,14 @@ int dwc_otg_hcd_init(dwc_otg_hcd_t * hcd, dwc_otg_core_if_t * core_if)
 
 	hcd->lock = DWC_SPINLOCK_ALLOC();
 	hcd->channel_lock = DWC_SPINLOCK_ALLOC();
-        DWC_DEBUGPL(DBG_HCDV, "init of HCD %p given core_if %p\n",
-                    hcd, core_if);
+
+	DWC_DEBUGPL(DBG_HCDV, "init of HCD %p given core_if %p\n",
+			hcd, core_if);
+
 	if (!hcd->lock) {
 		DWC_ERROR("Could not allocate lock for pcd");
 		DWC_FREE(hcd);
+		hcd = NULL;
 		retval = -DWC_E_NO_MEMORY;
 		goto out;
 	}

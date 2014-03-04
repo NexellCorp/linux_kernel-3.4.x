@@ -158,6 +158,8 @@ static inline int usb_gadget_udc_start(struct usb_gadget *gadget,
 static inline void usb_gadget_stop(struct usb_gadget *gadget,
 		struct usb_gadget_driver *driver)
 {
+	// psw0523 add
+	if (gadget && gadget->ops && gadget->ops->stop) // end psw0523
 	gadget->ops->stop(driver);
 }
 
@@ -176,6 +178,8 @@ static inline void usb_gadget_stop(struct usb_gadget *gadget,
 static inline void usb_gadget_udc_stop(struct usb_gadget *gadget,
 		struct usb_gadget_driver *driver)
 {
+	// psw0523 add
+	if (gadget && gadget->ops && gadget->ops->udc_stop) // end psw0523
 	gadget->ops->udc_stop(gadget, driver);
 }
 

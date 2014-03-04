@@ -366,6 +366,7 @@ static int _complete(dwc_otg_hcd_t * hcd, void *urb_handle,
 	}
 
 	DWC_FREE(dwc_otg_urb);
+	dwc_otg_urb = NULL;
 	if (!new_entry) {
 		DWC_ERROR("dwc_otg_hcd: complete: cannot allocate URB TQ entry\n");
 		urb->status = -EPROTO;

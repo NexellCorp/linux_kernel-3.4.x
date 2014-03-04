@@ -96,20 +96,8 @@ static int __devinit nxp_ehci_probe(struct platform_device *pdev)
 	}
 
 	nxp_ehci->hcd = hcd;
-//	nxp_ehci->clk = clk_get(&pdev->dev, DEV_NAME_USB2HOST);
-	nxp_ehci->phy = usb_get_transceiver();
-
-#if 0
-	if (IS_ERR(nxp_ehci->clk)) {
-		dev_err(&pdev->dev, "Failed to get usbhost clock\n");
-		err = PTR_ERR(nxp_ehci->clk);
-		goto fail_clk;
-	}
-
-	err = clk_enable(nxp_ehci->clk);
-	if (err)
-		goto fail_clken;
-#endif
+	nxp_ehci->clk = NULL;
+	nxp_ehci->phy = NULL;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -134,11 +122,6 @@ static int __devinit nxp_ehci_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-#if 0
-	if (nxp_ehci->phy)
-		usb_phy_init(nxp_ehci->phy);
-	else
-#endif
 	if (pdata->phy_init)
 		pdata->phy_init(pdev, NXP_USB_PHY_HOST);
 
@@ -172,25 +155,11 @@ static int __devinit nxp_ehci_probe(struct platform_device *pdev)
 			goto fail;
 	}
 
-//	clk_disable(nxp_ehci->clk);
-
 	return 0;
 
 fail:
 	iounmap(hcd->regs);
 fail_io:
-	if (nxp_ehci->clk)
-		clk_disable(nxp_ehci->clk);
-#if 0
-fail_clken:
-#endif
-	if (nxp_ehci->clk)
-		clk_put(nxp_ehci->clk);
-
-	nxp_ehci->clk = NULL;
-#if 0
-fail_clk:
-#endif
 	usb_put_hcd(hcd);
 fail_hcd:
 	if (nxp_ehci->phy)
@@ -207,20 +176,11 @@ static int __devexit nxp_ehci_remove(struct platform_device *pdev)
 
 	usb_remove_hcd(hcd);
 
-	if (nxp_ehci->phy) {
-		otg_set_host(nxp_ehci->phy->otg, NULL);
-		usb_put_transceiver(nxp_ehci->phy);
-	} else if (pdata && pdata->phy_exit) {
+	if (pdata && pdata->phy_exit) {
 		pdata->phy_exit(pdev, NXP_USB_PHY_HOST);
 	}
 
 	iounmap(hcd->regs);
-
-	if (nxp_ehci->clk) {
-		clk_disable(nxp_ehci->clk);
-		clk_put(nxp_ehci->clk);
-		nxp_ehci->clk = NULL;
-	}
 
 	usb_put_hcd(hcd);
 	kfree(nxp_ehci);

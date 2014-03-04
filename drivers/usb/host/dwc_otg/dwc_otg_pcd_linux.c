@@ -421,12 +421,15 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
  */
 static int ep_dequeue(struct usb_ep *usb_ep, struct usb_request *usb_req)
 {
-	DWC_DEBUGPL(DBG_PCDV, "%s(%p,%p)\n", __func__, usb_ep, usb_req);
+	DWC_DEBUGPL(DBG_PCDV, "++ %s\n", __func__);
 
 	if (!usb_ep || !usb_req) {
 		DWC_WARN("bad argument\n");
 		return -EINVAL;
 	}
+
+	DWC_DEBUGPL(DBG_PCDV, "%s(%p,%p)\n", __func__, usb_ep, usb_req);
+
 	if (!gadget_wrapper->driver ||
 	    gadget_wrapper->gadget.speed == USB_SPEED_UNKNOWN) {
 		DWC_WARN("bogus device state\n");
@@ -709,7 +712,7 @@ void dwc_udc_suspend(void)
 {
     if (s_gadget_driver) {
 #ifdef CONFIG_USB_G_ANDROID
-        //android_gadget_cleanup();
+        android_gadget_cleanup();
 #else
         usb_gadget_unregister_driver(s_gadget_driver);
 #endif
@@ -720,7 +723,7 @@ void dwc_udc_resume(void)
 {
     if (s_gadget_driver && s_bind_func) {
 #ifdef CONFIG_USB_G_ANDROID
-        //android_gadget_init();
+        android_gadget_init();
 #else
         usb_gadget_probe_driver(s_gadget_driver, s_bind_func);
 #endif
@@ -768,10 +771,10 @@ static int dwc_udc_start(struct usb_gadget_driver *driver,
 	}
 
 	/* hook up the driver */
+	driver->driver.bus = NULL;
 	gadget_wrapper->driver = driver;
 	gadget_wrapper->gadget.dev.driver = &driver->driver;
-    gadget_wrapper->gadget.speed = USB_SPEED_UNKNOWN;
-    driver->driver.bus = NULL;
+	gadget_wrapper->gadget.speed = USB_SPEED_UNKNOWN;
 
 #if 0
     retval = device_add(&gadget_wrapper->gadget.dev);
@@ -807,16 +810,6 @@ err:
 static int dwc_udc_stop(struct usb_gadget_driver *driver)
 {
 	DWC_DEBUGPL(DBG_PCD, "dwc_pcd [%d] %s\n", __LINE__, __func__);
-
-	if (!gadget_wrapper)
-		return -ENODEV;
-	if (!driver || driver != gadget_wrapper->driver || !driver->unbind)
-		return -EINVAL;
-
-	driver->unbind(&gadget_wrapper->gadget);
-	gadget_wrapper->gadget.dev.driver = NULL;
-	gadget_wrapper->driver = NULL;
-
 	return 0;
 }
 
@@ -862,9 +855,9 @@ static int wakeup(struct usb_gadget *gadget)
 
 	if (gadget == 0) {
 		return -ENODEV;
-	} else {
-		d = container_of(gadget, struct gadget_wrapper, gadget);
 	}
+
+	d = container_of(gadget, struct gadget_wrapper, gadget);
 	dwc_otg_pcd_wakeup(d->pcd);
 	return 0;
 }
@@ -874,14 +867,16 @@ static int dwc_udc_pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct gadget_wrapper *d;
 
-	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, gadget);
+	DWC_DEBUGPL(DBG_PCDV, "++ %s\n", __func__);
 
 	if (gadget == 0) {
 		return -ENODEV;
 	}
 
+	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, gadget);
+
 	d = container_of(gadget, struct gadget_wrapper, gadget);
-	dwc_otg_pcd_softconnect(d->pcd, is_on);	
+	dwc_otg_pcd_softconnect(d->pcd, is_on);
 	return 0;
 }
 
@@ -896,7 +891,7 @@ static const struct usb_gadget_ops dwc_otg_pcd_ops = {
 	.pullup = dwc_udc_pullup,
 	.vbus_session = dwc_vbus_enable,
 	.vbus_draw = dwc_vbus_draw,
-    .stop = dwc_udc_stop,
+	.stop = dwc_udc_stop,
 //<-- add by kook - for android gadget [20130419]
 // psw0523 add
     .start = dwc_udc_start,
@@ -1322,6 +1317,8 @@ static struct gadget_wrapper *alloc_wrapper(dwc_bus_dev_t *_dev)
 	struct gadget_wrapper *d;
 	int retval;
 
+	DWC_DEBUGPL(DBG_PCDV, "++ %s\n", __func__);
+
 	d = DWC_ALLOC(sizeof(*d));
 	if (d == NULL) {
 		return NULL;
@@ -1367,6 +1364,8 @@ static struct gadget_wrapper *alloc_wrapper(dwc_bus_dev_t *_dev)
 
 static void free_wrapper(struct gadget_wrapper *d)
 {
+	DWC_DEBUGPL(DBG_PCDV, "++ %s\n", __func__);
+
 	if (d->driver) {
 		/* should have been done already by driver model core */
 		DWC_WARN("driver '%s' is still registered\n",
@@ -1376,6 +1375,7 @@ static void free_wrapper(struct gadget_wrapper *d)
 
 	device_unregister(&d->gadget.dev);
 	DWC_FREE(d);
+	d = NULL;
 }
 
 /**

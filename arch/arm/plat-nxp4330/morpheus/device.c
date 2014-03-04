@@ -438,6 +438,8 @@ static struct nxe2000_pwrkey_platform_data nxe2000_pwrkey_data = {
 static struct nxe2000_battery_platform_data nxe2000_battery_data = {
 	.irq 				= NXE2000_IRQ_BASE,
 
+	.input_power_type   = INPUT_POWER_TYPE_UBC,
+
 	.gpio_otg_usbid		= CFG_GPIO_OTG_USBID_DET,
 	.gpio_otg_vbus		= CFG_GPIO_OTG_VBUS_DET,
 	.gpio_pmic_vbus		= CFG_GPIO_PMIC_VUSB_DET,
@@ -581,6 +583,18 @@ static struct i2c_board_info __initdata nxe2000_regulators[] = {
  * MPEGTS platform device
  */
 #if defined(CONFIG_NXP4330_MP2TS_IF)
+#include <mach/nxp4330_mp2ts.h>
+
+#define NXP_TS_PAGE_NUM_0       (36)	// Variable
+#define NXP_TS_BUF_SIZE_0       (TS_PAGE_SIZE * NXP_TS_PAGE_NUM_0)
+
+#define NXP_TS_PAGE_NUM_1       (36)	// Variable
+#define NXP_TS_BUF_SIZE_1       (TS_PAGE_SIZE * NXP_TS_PAGE_NUM_1)
+
+#define NXP_TS_PAGE_NUM_CORE    (36)	// Variable
+#define NXP_TS_BUF_SIZE_CORE    (TS_PAGE_SIZE * NXP_TS_PAGE_NUM_CORE)
+
+
 static struct nxp_mp2ts_dev_info mp2ts_dev_info[2] = {
     {
         .demod_irq_num = CFG_GPIO_DEMOD_0_IRQ_NUM,
@@ -595,7 +609,10 @@ static struct nxp_mp2ts_dev_info mp2ts_dev_info[2] = {
 };
 
 static struct nxp_mp2ts_plat_data mpegts_plat_data = {
-    .dev_info = mp2ts_dev_info,
+    .dev_info       = mp2ts_dev_info,
+    .ts_dma_size[0] = NXP_TS_BUF_SIZE_0,    // TS ch 0 - Static alloc size.
+    .ts_dma_size[1] = -1,                   // TS ch 1 - Static alloc size.
+    .ts_dma_size[2] = -1,                   // TS core - Static alloc size.
 };
 
 static struct platform_device mpegts_plat_device = {
@@ -660,6 +677,7 @@ static struct dw_mci_board _dwmci0_data = {
 #endif
 
 #endif /* CONFIG_MMC_DW */
+
 /*------------------------------------------------------------------------------
  * v4l2 platform device
  */
@@ -736,6 +754,7 @@ static struct platform_device nxp_v4l2_dev = {
 	},   
 };
 #endif
+
 /*------------------------------------------------------------------------------
  * register board platform devices
  */
