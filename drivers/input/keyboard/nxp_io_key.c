@@ -262,7 +262,6 @@ static int nxp_key_resume(struct platform_device *pdev)
 {
 	struct key_info *key = platform_get_drvdata(pdev);
 	struct key_code * code = key->code;
-	unsigned int wake_event = nxp_cpu_wake_event_devs();
 	int i = 0;
 	PM_DBGOUT("%s\n", __func__);
 
