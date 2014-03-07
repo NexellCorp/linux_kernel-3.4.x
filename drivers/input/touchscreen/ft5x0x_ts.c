@@ -207,8 +207,8 @@ static ssize_t ts_rotate_store(struct device *dev,
 	return n;
 }
 
-static DEVICE_ATTR(calibration, 0666, ts_calibration_show, ts_calibration_store);
-static DEVICE_ATTR(rotate, 0666, ts_rotate_show, ts_rotate_store);
+static DEVICE_ATTR(calibration, S_IRUGO | S_IWUSR, ts_calibration_show, ts_calibration_store);
+static DEVICE_ATTR(rotate, S_IRUGO | S_IWUSR, ts_rotate_show, ts_rotate_store);
 
 static ssize_t ts_points_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -242,7 +242,7 @@ static ssize_t ts_points_store(struct device *dev,
 	return n;
 }
 
-static DEVICE_ATTR(points, 0666,
+static DEVICE_ATTR(points, S_IRUGO | S_IWUSR,
 		ts_points_show, ts_points_store);
 
 static struct attribute *ts_attrs[] = {

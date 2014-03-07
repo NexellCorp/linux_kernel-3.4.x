@@ -1006,7 +1006,7 @@ static ssize_t stk831x_delay_store(struct device *dev,
 
 #ifdef USE_FIXED_DELAY
 	data = USE_FIXED_DELAY;
-#endif	
+#endif
 
 	atomic_set(&stk->delay1 , data);
 	STK831X_SetDelay(stk, data*1000000);	// ms to ns
@@ -2171,7 +2171,7 @@ static ssize_t stk831x_calibration_reset_store(struct device *dev,
     return count;
 }
 
-
+#if (0)
 static DEVICE_ATTR(enable, 0666, stk831x_enable_show, stk831x_enable_store);
 static DEVICE_ATTR(value, 0444, stk831x_value_show, NULL);
 static DEVICE_ATTR(calibration_value, 0666, stk831x_calibration_value_show, stk831x_calibration_value_store);
@@ -2191,6 +2191,28 @@ static DEVICE_ATTR(calibration_reset, S_IWUSR|S_IWGRP|S_IWOTH,
 
 static DEVICE_ATTR(recvo, 0222, NULL, stk831x_recvo_store);
 static DEVICE_ATTR(firlen, 0666, stk831x_firlen_show, stk831x_firlen_store);
+#else
+static DEVICE_ATTR(enable, 0664, stk831x_enable_show, stk831x_enable_store);
+static DEVICE_ATTR(value, 0444, stk831x_value_show, NULL);
+static DEVICE_ATTR(calibration_value, 0664, stk831x_calibration_value_show, stk831x_calibration_value_store);
+static DEVICE_ATTR(delay, 0664, stk831x_delay_show, stk831x_delay_store);
+static DEVICE_ATTR(cali, 0664, stk831x_cali_show, stk831x_cali_store);
+static DEVICE_ATTR(send, 0220, NULL, stk831x_send_store);
+static DEVICE_ATTR(recv, 0664, stk831x_recv_show, stk831x_recv_store);
+static DEVICE_ATTR(allreg, 0444, stk831x_allreg_show, NULL);
+static DEVICE_ATTR(sendo, 0220, NULL, stk831x_sendo_store);
+static DEVICE_ATTR(board_position, S_IRUGO|S_IWUSR|S_IWGRP,
+        stk831x_board_position_show, stk831x_board_position_store);
+
+static DEVICE_ATTR(calibration_run, S_IWUSR|S_IWGRP,
+        NULL, stk831x_calibration_run_store);
+static DEVICE_ATTR(calibration_reset, S_IWUSR|S_IWGRP,
+        NULL, stk831x_calibration_reset_store);
+
+static DEVICE_ATTR(recvo, 0222, NULL, stk831x_recvo_store);
+static DEVICE_ATTR(firlen, 0664, stk831x_firlen_show, stk831x_firlen_store);
+
+#endif
 
 static struct attribute *stk831x_attributes[] = {
 	&dev_attr_enable.attr,
@@ -2456,7 +2478,7 @@ static int stk_store_in_file(char offset[], char mode)
 	w_buf[4] = offset[2];
 	w_buf[5] = mode;
 
-    cali_file = filp_open(STK_ACC_CALI_FILE, O_CREAT | O_RDWR,0666);
+    cali_file = filp_open(STK_ACC_CALI_FILE, O_CREAT | O_RDWR,0664);
 
     if(IS_ERR(cali_file))
 	{

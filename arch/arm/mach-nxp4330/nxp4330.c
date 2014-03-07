@@ -132,7 +132,7 @@ static ssize_t version_show(struct device *pdev,
 
 	return (s - buf);
 }
-static struct device_attribute vers_attr = __ATTR(version, 0666, version_show, NULL);
+static struct device_attribute vers_attr = __ATTR(version, 0664, version_show, NULL);
 
 static struct attribute *attrs[] = {
 	&vers_attr.attr, NULL,

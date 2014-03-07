@@ -386,10 +386,10 @@ static ssize_t pwm_store(struct device *dev,
 	return n;
 }
 
-static struct device_attribute pwm0_attr = __ATTR(pwm.0, 0666, pwm_show, pwm_store);
-static struct device_attribute pwm1_attr = __ATTR(pwm.1, 0666, pwm_show, pwm_store);
-static struct device_attribute pwm2_attr = __ATTR(pwm.2, 0666, pwm_show, pwm_store);
-static struct device_attribute pwm3_attr = __ATTR(pwm.3, 0666, pwm_show, pwm_store);
+static struct device_attribute pwm0_attr = __ATTR(pwm.0, S_IRUGO | S_IWUSR, pwm_show, pwm_store);
+static struct device_attribute pwm1_attr = __ATTR(pwm.1, S_IRUGO | S_IWUSR, pwm_show, pwm_store);
+static struct device_attribute pwm2_attr = __ATTR(pwm.2, S_IRUGO | S_IWUSR, pwm_show, pwm_store);
+static struct device_attribute pwm3_attr = __ATTR(pwm.3, S_IRUGO | S_IWUSR, pwm_show, pwm_store);
 
 /* sys attribte group */
 static struct attribute *attrs[] = {

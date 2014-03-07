@@ -584,6 +584,7 @@ static ssize_t mma7660_calibration_value_store(struct device *dev,
 	return count;
 }
 
+#if (0)
 static DEVICE_ATTR(reg, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
 		mma7660_register_show, mma7660_register_store);
 static DEVICE_ATTR(mode, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
@@ -607,6 +608,31 @@ static DEVICE_ATTR(calibration_reset, S_IWUSR|S_IWGRP|S_IWOTH,
 static DEVICE_ATTR(calibration_value, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
 		mma7660_calibration_value_show,
 		mma7660_calibration_value_store);
+#else
+static DEVICE_ATTR(reg, S_IRUGO|S_IWUSR|S_IWGRP,
+		mma7660_register_show, mma7660_register_store);
+static DEVICE_ATTR(mode, S_IRUGO|S_IWUSR|S_IWGRP,
+		mma7660_mode_show, mma7660_mode_store);
+static DEVICE_ATTR(rate, S_IRUGO|S_IWUSR|S_IWGRP,
+		mma7660_rate_show, mma7660_rate_store);
+static DEVICE_ATTR(value, S_IRUGO,
+		mma7660_value_show, NULL);
+static DEVICE_ATTR(delay, S_IRUGO|S_IWUSR|S_IWGRP,
+		mma7660_delay_show, mma7660_delay_store);
+static DEVICE_ATTR(enable, S_IRUGO|S_IWUSR|S_IWGRP,
+		mma7660_enable_show, mma7660_enable_store);
+static DEVICE_ATTR(fuzz, S_IRUGO|S_IWUSR|S_IWGRP,
+		mma7660_fuzz_show, mma7660_fuzz_store);
+static DEVICE_ATTR(board_position, S_IRUGO|S_IWUSR|S_IWGRP,
+		mma7660_board_position_show, mma7660_board_position_store);
+static DEVICE_ATTR(calibration_run, S_IWUSR|S_IWGRP,
+		NULL, mma7660_calibration_run_store);
+static DEVICE_ATTR(calibration_reset, S_IWUSR|S_IWGRP,
+		NULL, mma7660_calibration_reset_store);
+static DEVICE_ATTR(calibration_value, S_IRUGO|S_IWUSR|S_IWGRP,
+		mma7660_calibration_value_show,
+		mma7660_calibration_value_store);
+#endif
 
 static struct attribute *mma7660_attributes[] = {
 	&dev_attr_reg.attr,

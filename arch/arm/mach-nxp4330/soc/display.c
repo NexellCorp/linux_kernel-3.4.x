@@ -2144,8 +2144,8 @@ static ssize_t vsync_show(struct device *pdev,
     return scnprintf(buf, PAGE_SIZE, "%llu\n", ktime_to_ns(info->time_stamp));
 }
 
-static struct device_attribute vblank0_attr = __ATTR(vsync.0, 0666, vsync_show, NULL);
-static struct device_attribute vblank1_attr = __ATTR(vsync.1, 0666, vsync_show, NULL);
+static struct device_attribute vblank0_attr = __ATTR(vsync.0, S_IRUGO | S_IWUSR, vsync_show, NULL);
+static struct device_attribute vblank1_attr = __ATTR(vsync.1, S_IRUGO | S_IWUSR, vsync_show, NULL);
 
 /* sys attribte group */
 static struct attribute *attrs[] = {
