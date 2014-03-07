@@ -690,6 +690,7 @@ static inline dwc_otg_qtd_t *dwc_otg_hcd_qtd_alloc(int atomic_alloc)
 static inline void dwc_otg_hcd_qtd_free(dwc_otg_qtd_t * qtd)
 {
 	DWC_FREE(qtd);
+	qtd = NULL;
 }
 
 /** Removes a QTD from list.

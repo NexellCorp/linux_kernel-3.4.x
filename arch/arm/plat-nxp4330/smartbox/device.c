@@ -233,7 +233,7 @@ void __init nxp_reserve_mem(void)
 
 #define NXE2000_I2C_BUS		(0)
 #define NXE2000_I2C_ADDR	(0x64 >> 1)
-#define NXE2000_IRQ			(PAD_GPIO_ALV + 4)
+#define NXE2000_IRQ			(PAD_GPIO_A + 17)
 
 #define PMC_CTRL			0x0
 #define PMC_CTRL_INTR_LOW	(1 << 17)
@@ -403,6 +403,8 @@ static struct nxe2000_pwrkey_platform_data nxe2000_pwrkey_data = {
 static struct nxe2000_battery_platform_data nxe2000_battery_data = {
 	.irq 				= NXE2000_IRQ_BASE,
 
+	.input_power_type   = INPUT_POWER_TYPE_ADP,
+
 	.gpio_otg_usbid		= CFG_GPIO_OTG_USBID_DET,
 	.gpio_otg_vbus		= CFG_GPIO_OTG_VBUS_DET,
 	.gpio_pmic_vbus		= CFG_GPIO_PMIC_VUSB_DET,
@@ -546,6 +548,18 @@ static struct i2c_board_info __initdata nxe2000_regulators[] = {
  * MPEGTS platform device
  */
 #if defined(CONFIG_NXP4330_MP2TS_IF)
+#include <mach/nxp4330_mp2ts.h>
+
+#define NXP_TS_PAGE_NUM_0       (36)	// Variable
+#define NXP_TS_BUF_SIZE_0       (TS_PAGE_SIZE * NXP_TS_PAGE_NUM_0)
+
+#define NXP_TS_PAGE_NUM_1       (36)	// Variable
+#define NXP_TS_BUF_SIZE_1       (TS_PAGE_SIZE * NXP_TS_PAGE_NUM_1)
+
+#define NXP_TS_PAGE_NUM_CORE    (36)	// Variable
+#define NXP_TS_BUF_SIZE_CORE    (TS_PAGE_SIZE * NXP_TS_PAGE_NUM_CORE)
+
+
 static struct nxp_mp2ts_dev_info mp2ts_dev_info[2] = {
     {
         .demod_irq_num = CFG_GPIO_DEMOD_0_IRQ_NUM,
@@ -560,7 +574,10 @@ static struct nxp_mp2ts_dev_info mp2ts_dev_info[2] = {
 };
 
 static struct nxp_mp2ts_plat_data mpegts_plat_data = {
-    .dev_info = mp2ts_dev_info,
+    .dev_info       = mp2ts_dev_info,
+    .ts_dma_size[0] = -1,                   // TS ch 0 - Static alloc size.
+    .ts_dma_size[1] = NXP_TS_BUF_SIZE_1,    // TS ch 1 - Static alloc size.
+    .ts_dma_size[2] = -1,                   // TS core - Static alloc size.
 };
 
 static struct platform_device mpegts_plat_device = {
@@ -964,6 +981,7 @@ int  nxpmac_init(struct platform_device *pdev)
     NX_CLKGEN_SetClockSource( CLOCKINDEX_OF_DWC_GMAC_MODULE, 0, 4);     // Sync mode for 100 & 10Base-T : External RX_clk
     NX_CLKGEN_SetClockDivisor( CLOCKINDEX_OF_DWC_GMAC_MODULE, 0, 1);    // Sync mode for 100 & 10Base-T
     NX_CLKGEN_SetClockOutInv( CLOCKINDEX_OF_DWC_GMAC_MODULE, 0, CFALSE);    // TX Clk invert off
+//    NX_CLKGEN_SetClockOutInv( CLOCKINDEX_OF_DWC_GMAC_MODULE, 0, CTRUE);     // TX clk invert on : 100 & 10Base-T, Strength 0
 
     NX_CLKGEN_SetClockDivisorEnable( CLOCKINDEX_OF_DWC_GMAC_MODULE, CTRUE);
 
@@ -981,7 +999,21 @@ int  nxpmac_init(struct platform_device *pdev)
 	return 0;
 }
 
+int gmac_phy_reset(void *priv)
+{
+	// Set GPIO nReset
+	gpio_set_value(CFG_ETHER_GMAC_PHY_RST_NUM, 1 );
+	udelay( 100 );
+	gpio_set_value(CFG_ETHER_GMAC_PHY_RST_NUM, 0 );
+	udelay( 100 );
+	gpio_set_value(CFG_ETHER_GMAC_PHY_RST_NUM, 1 );
+	msleep( 30 );
+
+	return 0;
+}
+
 static struct stmmac_mdio_bus_data nxpmac0_mdio_bus = {
+	.phy_reset = gmac_phy_reset,
 	.phy_mask = 0,
 	.probed_phy_irq = CFG_ETHER_GMAC_PHY_IRQ_NUM,
 };

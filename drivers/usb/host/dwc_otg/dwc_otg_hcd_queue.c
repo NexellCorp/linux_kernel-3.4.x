@@ -76,6 +76,7 @@ void dwc_otg_hcd_qh_free(dwc_otg_hcd_t * hcd, dwc_otg_qh_t * qh)
 	}
 
 	DWC_FREE(qh);
+	qh = NULL;
 	DWC_SPINUNLOCK(hcd->lock);
 	return;
 }

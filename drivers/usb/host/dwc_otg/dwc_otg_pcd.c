@@ -133,6 +133,7 @@ void dwc_otg_request_done(dwc_otg_pcd_ep_t * ep, dwc_otg_pcd_request_t * req,
     }
 // end psw0523
 	DWC_FREE(req);
+	req = NULL;
 }
 
 /**
@@ -878,6 +879,7 @@ int dwc_otg_pcd_iso_ep_stop(dwc_otg_pcd_t * pcd, void *ep_handle,
 	dwc_otg_iso_ep_stop_transfer(GET_CORE_IF(pcd), dwc_ep);
 
 	DWC_FREE(dwc_ep->pkt_info);
+	dwc_ep->pkt_info = NULL;
 	DWC_SPINLOCK_IRQSAVE(pcd->lock, &flags);
 	if (ep->iso_req_handle != req_handle) {
 		DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
@@ -1385,7 +1387,9 @@ void dwc_otg_pcd_remove(dwc_otg_pcd_t * pcd)
 		}
 	} else {
 		DWC_FREE(pcd->setup_pkt);
+		pcd->setup_pkt = NULL;
 		DWC_FREE(pcd->status_buf);
+		pcd->status_buf = NULL;
 	}
 	DWC_SPINLOCK_FREE(pcd->lock);
 	/* Set core_if's lock pointer to NULL */
@@ -1414,6 +1418,7 @@ void dwc_otg_pcd_remove(dwc_otg_pcd_t * pcd)
 // end psw0523
 
 	DWC_FREE(pcd);
+	pcd = NULL;
 }
 
 /**
@@ -1763,7 +1768,9 @@ out_unlocked:
 void dwc_pcd_xiso_ereq_free(dwc_otg_pcd_ep_t * ep, dwc_otg_pcd_request_t * req)
 {
 	DWC_FREE(req->ext_req.per_io_frame_descs);
+	req->ext_req.per_io_frame_descs = NULL;
 	DWC_FREE(req);
+	req = NULL;
 }
 
 /**
@@ -2758,7 +2765,7 @@ void dwc_otg_pcd_softconnect(dwc_otg_pcd_t * pcd, int is_set)
 		DWC_SPINLOCK_IRQSAVE(pcd->lock, &flags);
 		dctl.b.sftdiscon = 1;
 		if (is_set) {
-			DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl, dctl.d32,0);
+			DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl, dctl.d32, 0);
 		} else {
 			DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl, 0, dctl.d32);
 		}

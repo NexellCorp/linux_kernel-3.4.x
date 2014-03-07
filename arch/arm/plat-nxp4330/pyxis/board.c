@@ -185,11 +185,17 @@ static void bd_alive_init(void)
 /*------------------------------------------------------------------------------
  * board interface
  */
+static int g_initGpio = 1;
 void nxp_board_base_init(void)
 {
-	bd_gpio_init();
-	bd_alive_init();
-	DBGOUT("%s : done board initialize ...\n", CFG_SYS_BOARD_NAME);
+	if (g_initGpio)
+	{
+		bd_gpio_init();
+		bd_alive_init();
+		DBGOUT("%s : done board initialize ...\n", CFG_SYS_BOARD_NAME);
+
+		g_initGpio = 0;
+	}
 }
 
 #if defined (CONFIG_INITRAMFS_SOURCE) && defined (CONFIG_DEVTMPFS_MOUNT)

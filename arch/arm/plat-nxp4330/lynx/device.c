@@ -826,6 +826,8 @@ static struct nxe2000_pwrkey_platform_data nxe2000_pwrkey_data = {
 static struct nxe2000_battery_platform_data nxe2000_battery_data = {
 	.irq 				= NXE2000_IRQ_BASE,
 
+	.input_power_type	= INPUT_POWER_TYPE_ADP_UBC_LINKED,
+
 	.gpio_otg_usbid		= CFG_GPIO_OTG_USBID_DET,
 	.gpio_otg_vbus		= CFG_GPIO_OTG_VBUS_DET,
 	.gpio_pmic_vbus		= CFG_GPIO_PMIC_VUSB_DET,
@@ -1647,7 +1649,7 @@ static struct dw_mci_board _dwmci0_data = {
 //	.ddr_timing		= 0x03030002,
 	.cd_type		= DW_MCI_CD_EXTERNAL,
 	.init			= _dwmci0_init,
-    .get_ro         = _dwmci_get_ro,
+	.get_ro			= _dwmci_get_ro,
 	.get_cd			= _dwmci0_get_cd,
 	.ext_cd_init	= _dwmci_ext_cd_init,
 	.ext_cd_cleanup	= _dwmci_ext_cd_cleanup,
@@ -1657,14 +1659,14 @@ static struct dw_mci_board _dwmci0_data = {
 #ifdef CONFIG_MMC_NEXELL_CH1
 static struct dw_mci_board _dwmci1_data = {
 	.quirks			= DW_MCI_QUIRK_BROKEN_CARD_DETECTION |
-				  		DW_MCI_QUIRK_HIGHSPEED |
-				  		DW_MMC_QUIRK_HW_RESET_PW |
-				  		DW_MCI_QUIRK_NO_DETECT_EBIT,
+						DW_MCI_QUIRK_HIGHSPEED |
+						DW_MMC_QUIRK_HW_RESET_PW |
+						DW_MCI_QUIRK_NO_DETECT_EBIT,
 	.bus_hz			= 100 * 1000 * 1000,
 	.caps			= MMC_CAP_UHS_DDR50 |
 						MMC_CAP_NONREMOVABLE |
-				  		MMC_CAP_4_BIT_DATA | MMC_CAP_CMD23 |
-				  		MMC_CAP_ERASE | MMC_CAP_HW_RESET,
+						MMC_CAP_4_BIT_DATA | MMC_CAP_CMD23 |
+						MMC_CAP_ERASE | MMC_CAP_HW_RESET,
 	.caps2			= MMC_CAP2_PACKED_WR,
 	.desc_sz		= 4,
 	.detect_delay_ms= 200,

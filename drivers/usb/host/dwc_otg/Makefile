@@ -17,17 +17,18 @@ endif
 
 # Use one of the following flags to compile the software in host-only or
 # device-only mode.
-#EXTRA_CFLAGS        += -DDWC_HOST_ONLY
-#EXTRA_CFLAGS        += -DDWC_DEVICE_ONLY
+#EXTRA_CFLAGS	+= -DDWC_HOST_ONLY
+#EXTRA_CFLAGS	+= -DDWC_DEVICE_ONLY
 
 EXTRA_CFLAGS	+= -Dlinux -DDWC_HS_ELECT_TST
 #EXTRA_CFLAGS	+= -DDWC_EN_ISOC
-EXTRA_CFLAGS   	+= -I$(obj)/../dwc_common_port
-#EXTRA_CFLAGS   	+= -I$(PORTLIB)
-EXTRA_CFLAGS   	+= -DDWC_LINUX
-EXTRA_CFLAGS   	+= $(CFI)
+EXTRA_CFLAGS	+= -I$(obj)/../dwc_common_port
+#EXTRA_CFLAGS	+= -I$(PORTLIB)
+EXTRA_CFLAGS	+= -DDWC_LINUX
+EXTRA_CFLAGS	+= $(CFI)
 EXTRA_CFLAGS	+= $(BUS_INTERFACE)
 #EXTRA_CFLAGS	+= -DDWC_DEV_SRPCAP
+#EXTRA_CFLAGS	+= -DPARTIAL_POWER_DOWN
 
 obj-$(CONFIG_USB_DWCOTG) += dwc_otg.o
 

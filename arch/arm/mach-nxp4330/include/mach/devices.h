@@ -52,7 +52,7 @@
 #define DEV_NAME_SOC_PWM        "nxp-soc-pwm"
 #define DEV_NAME_GPIO           "nxp-gpio"
 #define DEV_NAME_RTC            "nxp-rtc"
-#define DEV_NAME_GMAC            "nxp-gmac"
+#define DEV_NAME_GMAC           "nxp-gmac"
 #define DEV_NAME_MPEGTSI        "nxp-mpegtsi"
 #define DEV_NAME_VR             "nxp-vr"
 #define DEV_NAME_DIT            "nxp-deinterlace"
@@ -260,6 +260,7 @@ struct nxp_mp2ts_dev_info {
 
 struct nxp_mp2ts_plat_data {
     struct nxp_mp2ts_dev_info *dev_info;
+    int ts_dma_size[3];
 };
 
 #endif    /* __DEVICES_H__ */

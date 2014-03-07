@@ -227,11 +227,11 @@
  *  MP2TS (Tuner & Demodule)
  */
 #define CFG_GPIO_DEMOD_0_IRQ_NUM				(-1)
-#define CFG_GPIO_DEMOD_0_RST_NUM				(PAD_GPIO_A + 23)
+#define CFG_GPIO_DEMOD_0_RST_NUM				(-1)
 #define CFG_GPIO_TUNER_0_RST_NUM				(-1)
 
 #define CFG_GPIO_DEMOD_1_IRQ_NUM				(-1)
-#define CFG_GPIO_DEMOD_1_RST_NUM				(-1)
+#define CFG_GPIO_DEMOD_1_RST_NUM				(PAD_GPIO_A + 23)
 #define CFG_GPIO_TUNER_1_RST_NUM				(-1)
 
 /*------------------------------------------------------------------------------

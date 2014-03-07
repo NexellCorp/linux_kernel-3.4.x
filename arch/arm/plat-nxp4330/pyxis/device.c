@@ -490,19 +490,19 @@ static struct regulator_consumer_supply nxe2000_ldortc2_supply_0[] = {
 	}
 /* min_uV/max_uV : Please set the appropriate value for the devices that the power supplied within a*/
 /*                 range from min to max voltage according to NXE2000 specification. */
-NXE2000_PDATA_INIT(dc1,      0,	1000000, 2000000, 1, 1, 1300000, 1, 12);	/* 1.3V ARM */
-NXE2000_PDATA_INIT(dc2,      0,	1000000, 2000000, 1, 1, 1200000, 1, 14);	/* 1.2V CORE */
+NXE2000_PDATA_INIT(dc1,      0,	1000000, 2000000, 1, 1, 1200000, 1, 12);	/* 1.2V ARM */
+NXE2000_PDATA_INIT(dc2,      0,	1000000, 2000000, 1, 1, 1100000, 1, 14);	/* 1.1V CORE */
 NXE2000_PDATA_INIT(dc3,      0,	1000000, 3500000, 1, 1, 3300000, 1,  2);	/* 3.3V SYS */
 NXE2000_PDATA_INIT(dc4,      0,	1000000, 2000000, 1, 1, 1600000, 1, -1);	/* 1.6V DDR */
 NXE2000_PDATA_INIT(dc5,      0,	1000000, 2000000, 1, 1, 1600000, 1,  8);	/* 1.6V SYS */
 
 NXE2000_PDATA_INIT(ldo1,     0,	1000000, 3500000, 1, 0, 3300000, 1,  2);	/* 3.3V GPS */
 NXE2000_PDATA_INIT(ldo2,     0,	1000000, 3500000, 0, 0, 1800000, 0,  2);	/* 1.8V CAM1 */
-NXE2000_PDATA_INIT(ldo3,     0,	1000000, 3500000, 1, 0, 1800000, 1,  6);	/* 1.8V SYS1 */
+NXE2000_PDATA_INIT(ldo3,     0,	1000000, 3500000, 1, 0, 1900000, 1,  6);	/* 1.8V SYS1 */
 NXE2000_PDATA_INIT(ldo4,     0,	1000000, 3500000, 1, 0, 1900000, 1,  6);	/* 1.9V SYS */
 NXE2000_PDATA_INIT(ldo5,     0,	1000000, 3500000, 0, 0, 2800000, 0,  1);	/* 2.8V VCAM */
 NXE2000_PDATA_INIT(ldo6,     0,	1000000, 3500000, 1, 0, 3300000, 1, -1);	/* 3.3V ALIVE */
-NXE2000_PDATA_INIT(ldo7,     0,	1000000, 3500000, 1, 0, 2800000, 1,  4);	/* 2.8V VID */
+NXE2000_PDATA_INIT(ldo7,     0,	1000000, 3500000, 1, 0, 3300000, 1,  2);	/* 3.3V VID */
 NXE2000_PDATA_INIT(ldo8,     0,	1000000, 3500000, 0, 0,      -1, 0,  0);	/* Not Use */
 NXE2000_PDATA_INIT(ldo9,     0,	1000000, 3500000, 0, 0,      -1, 0,  0);	/* Not Use */
 NXE2000_PDATA_INIT(ldo10,    0,	1000000, 3500000, 0, 0,      -1, 0,  0);	/* Not Use */
@@ -564,6 +564,8 @@ static struct nxe2000_pwrkey_platform_data nxe2000_pwrkey_data = {
 
 static struct nxe2000_battery_platform_data nxe2000_battery_data = {
 	.irq 				= NXE2000_IRQ_BASE,
+
+	.input_power_type	= INPUT_POWER_TYPE_UBC,
 
 	.gpio_otg_usbid		= CFG_GPIO_OTG_USBID_DET,
 	.gpio_otg_vbus		= CFG_GPIO_OTG_VBUS_DET,

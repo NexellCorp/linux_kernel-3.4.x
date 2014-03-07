@@ -195,7 +195,7 @@ static inline void _deinit_dma(u8 ch_num, struct ts_drv_context *ctx)
 	NX_MPEGTSI_SetIDMAEnable(ch_num, CFALSE);
 #else
 	if (ctx->ch_info[ch_num].dma_chan) {
-		dmaengine_terminate_all(ctx->ch_info[ch_num].dma_chan);
+		dma_release_channel(ctx->ch_info[ch_num].dma_chan);
 
 		ctx->ch_info[ch_num].dma_chan = NULL;
 	}
@@ -275,7 +275,7 @@ repeat_stop_dma:
 #else
 
 	if (ctx->ch_info[tmp_chnum].dma_chan) {
-		dma_release_channel(ctx->ch_info[tmp_chnum].dma_chan);
+		dmaengine_terminate_all(ctx->ch_info[tmp_chnum].dma_chan);
 	}
 #endif
 	ctx->ch_info[tmp_chnum].cnt = 0;
@@ -287,12 +287,12 @@ repeat_stop_dma:
 	}
 }
 
-static inline int _init_buf(struct ts_drv_context *ctx, struct ts_buf_init_info init_info)
+static inline int _init_buf(struct ts_drv_context *ctx, struct ts_buf_init_info *init_info)
 {
     int ret = 0;
     u8  ch_num;
 
-    ch_num = init_info.ch_num;
+    ch_num = init_info->ch_num;
 
     ctx->dev->coherent_dma_mask = 0xffffffff;
 
@@ -301,11 +301,10 @@ onemore_alloc:
     ctx->ch_info[ch_num].w_pos  = 0;
     ctx->ch_info[ch_num].r_pos  = 0;
 
-    ctx->ch_info[ch_num].page_size      = init_info.page_size;
-    ctx->ch_info[ch_num].page_num       = init_info.page_num;
-//    ctx->ch_info[ch_num].alloc_align    = ALLOC_ALIGN(init_info.page_size);
-    ctx->ch_info[ch_num].alloc_align    = init_info.page_size;
-    ctx->ch_info[ch_num].alloc_size     = (ctx->ch_info[ch_num].alloc_align * init_info.page_num);
+    ctx->ch_info[ch_num].page_size      = init_info->page_size;
+    ctx->ch_info[ch_num].page_num       = init_info->page_num;
+    ctx->ch_info[ch_num].alloc_align    = init_info->page_size;
+    ctx->ch_info[ch_num].alloc_size     = (ctx->ch_info[ch_num].alloc_align * init_info->page_num);
 
 
     ctx->ch_info[ch_num].dma_virt = (unsigned int)dma_alloc_writecombine(ctx->dev, ctx->ch_info[ch_num].alloc_size, &ctx->ch_info[ch_num].dma_phy, GFP_ATOMIC);
@@ -325,7 +324,7 @@ onemore_alloc:
     return 0;
 
 fail_dma_buf:
-    ch_num = init_info.ch_num;
+    ch_num = init_info->ch_num;
 
 onemore_free:
     ctx->ch_info[ch_num].alloc_align  = 0;
@@ -410,8 +409,8 @@ static void _deinit_context(struct ts_drv_context *ctx)
     {
         wake_up(&ctx->ch_info[ch_num].wait);
         _stop_dma(ch_num, ctx);
-        _deinit_buf(ch_num, ctx);
         _deinit_dma(ch_num, ctx);
+        _deinit_buf(ch_num, ctx);
     }
 }
 
@@ -843,6 +842,33 @@ static int _disable_device(u8 ch_num, struct ts_drv_context *ctx)
     return 0;
 }
 
+static int _prepare_dma(int ch_num, struct ts_drv_context *ctx, struct ts_buf_init_info *buf_info)
+{
+    int ret;
+
+#if (CFG_MPEGTS_IDMA_MODE == 1)
+    ret = _init_buf(ctx, buf_info);
+    if ( ret != 0 )
+        goto exit_cleanup;
+#else
+
+    ret = _init_dma(ch_num, ctx);
+    if ( ret != 0 )
+        goto exit_cleanup;
+
+    ret = _init_buf(ctx, buf_info);
+    if ( ret != 0 )
+    {
+        _deinit_dma(ch_num, ctx);
+        goto exit_cleanup;
+    }
+#endif
+
+    ctx->ch_info[ch_num].is_malloced  = 1;
+
+exit_cleanup:
+    return ret;
+}
 
 /* application interface */
 static int mpegts_open(struct inode *inode, struct file *filp)
@@ -884,13 +910,6 @@ static int mpegts_close(struct inode *inode, struct file *filp)
 
     for (ch_num = 0; ch_num < NXP_MP2TS_ID_MAX; ch_num++)
     {
-        if( s_ctx->ch_info[ch_num].is_malloced )
-        {
-            s_ctx->ch_info[ch_num].is_malloced = 0;
-			_deinit_dma(ch_num, s_ctx);
-            _deinit_buf(ch_num, s_ctx);
-        }
-
         s_ctx->ch_info[ch_num].is_first     = 1;
         s_ctx->ch_info[ch_num].do_continue  = 0;
     }
@@ -908,12 +927,12 @@ static ssize_t mpegts_read(struct file *filp, char *buf, size_t count, loff_t *p
 
 static ssize_t mpegts_read_buf(u8 ch_num, struct ts_param_descr *param_descr)
 {
-	u32     src_addr;
-	char   *buf       = param_descr->buf;
-	size_t  want_size = param_descr->buf_size;
-	int     wait_time = s_ctx->ch_info[ch_num].wait_time;
-	size_t  temp_size;
-	int     ret = 0;
+	u32         src_addr;
+	char        *buf        = param_descr->buf;
+	size_t      want_size   = param_descr->buf_size;
+	signed long wait_time   = msecs_to_jiffies(s_ctx->ch_info[ch_num].wait_time);
+	size_t      temp_size;
+	int         ret = 0;
 
 	if( !_r_able(&s_ctx->ch_info[ch_num]) )
 	{
@@ -953,12 +972,12 @@ static ssize_t mpegts_read_buf(u8 ch_num, struct ts_param_descr *param_descr)
 
 static ssize_t mpegts_write_buf(u8 ch_num, struct ts_param_descr *param_descr)
 {
-	u32     dst_addr;
-	char   *buf       = param_descr->buf;
-	size_t  want_size = param_descr->buf_size;
-	int     wait_time = s_ctx->ch_info[ch_num].wait_time;
-	size_t  temp_size;
-	int     ret = 0;
+	u32         dst_addr;
+	char        *buf        = param_descr->buf;
+	size_t      want_size   = param_descr->buf_size;
+	signed long wait_time   = msecs_to_jiffies(s_ctx->ch_info[ch_num].wait_time);
+	size_t      temp_size;
+	int         ret = 0;
 
 	if( !_w_able(&s_ctx->ch_info[ch_num]) )
 	{
@@ -1085,8 +1104,8 @@ repeat_init:
             {
                 s_ctx->ch_info[ch_num].is_running = 0;
 
-				_stop_dma(ch_num, s_ctx);
-				_disable_device(ch_num, s_ctx);
+                _stop_dma(ch_num, s_ctx);
+                _disable_device(ch_num, s_ctx);
             }
 
             ret = 0;
@@ -1108,23 +1127,23 @@ repeat_init:
             }
 
 #if (CFG_MPEGTS_IDMA_MODE == 1)
-            ret = _init_buf(s_ctx, buf_info);
+            ret = _init_buf(s_ctx, &buf_info);
             if ( ret == 0 )
                 s_ctx->ch_info[ch_num].is_malloced  = 1;
 #else
 
-			ret = _init_dma(ch_num, s_ctx);
-			if ( ret < 0 )
-				goto exit_ioctl;
+            ret = _init_dma(ch_num, s_ctx);
+            if ( ret < 0 )
+                goto exit_ioctl;
 
-			ret = _init_buf(s_ctx, buf_info);
-			if ( ret < 0 )
-			{
+            ret = _init_buf(s_ctx, &buf_info);
+            if ( ret < 0 )
+            {
                 _deinit_dma(ch_num, s_ctx);
-				goto exit_ioctl;
-			}
+                goto exit_ioctl;
+            }
 
-			s_ctx->ch_info[ch_num].is_malloced	= 1;
+            s_ctx->ch_info[ch_num].is_malloced	= 1;
 #endif
 
             printk("IOCTL : [MP2TS] Memory Alloc Step.2\n");
@@ -1144,7 +1163,7 @@ repeat_init:
 
                 printk("IOCTL : [MP2TS] Memory Dealloc Step.0\n");
 
-				_deinit_dma(ch_num, s_ctx);
+                _deinit_dma(ch_num, s_ctx);
                 _deinit_buf(ch_num, s_ctx);
 
                 s_ctx->ch_info[ch_num].is_malloced  = 0;
@@ -1163,7 +1182,7 @@ repeat_init:
                 goto exit_ioctl;
             }
 
-            ch_num      = (u8)param_descr.info.un.bits.ch_num;
+            ch_num  = (u8)param_descr.info.un.bits.ch_num;
 
             if (!s_ctx->ch_info[ch_num].is_running)
             {
@@ -1346,19 +1365,18 @@ repeat_init:
             break;
 
         case IOCTL_MPEGTS_CLR_PARAM:
-			{
-				struct ts_param_descr param_descr;
+            {
+                struct ts_param_descr param_descr;
 
-				if(copy_from_user((void *)&param_descr, (const void *)arg, sizeof(struct ts_param_descr)))
-				{
-					ret = -EFAULT;
-					goto exit_ioctl;
-				}
+                if(copy_from_user((void *)&param_descr, (const void *)arg, sizeof(struct ts_param_descr)))
+                {
+                    ret = -EFAULT;
+                    goto exit_ioctl;
+                }
 
-				ret = _clear_param(&param_descr);
-
-				break;
-			}
+                ret = _clear_param(&param_descr);
+            }
+            break;
 
         case IOCTL_MPEGTS_GET_PARAM:
             {
@@ -1389,22 +1407,22 @@ repeat_init:
                 if(copy_from_user((void *)&ch_num, (const void *)arg, sizeof(ch_num)))
                     goto exit_ioctl;
 
-                printk("IOCTL : [MP2TS] get Lock status Step.0\n");
+printk("IOCTL : [MP2TS] get Lock status Step.0\n");
 
 #if (CFG_MPEGTS_IDMA_MODE == 1)
                 data = NX_MPEGTSI_GetIDMAEnable(ch_num);
-                printk("IOCTL : [MP2TS] 0. GetIDMAEnable       = 0x%08X\n", data);
+printk("IOCTL : [MP2TS] 0. GetIDMAEnable       = 0x%08X\n", data);
 
                 data = NX_MPEGTSI_GetIDMAIntEnable();
-                printk("IOCTL : [MP2TS] 0. GetIDMAIntEnable    = 0x%08X\n", data);
+printk("IOCTL : [MP2TS] 0. GetIDMAIntEnable    = 0x%08X\n", data);
 
                 NX_MPEGTSI_RunIDMA(ch_num);
 
                 data = NX_MPEGTSI_GetIDMAEnable(ch_num);
-                printk("IOCTL : [MP2TS] 1. GetIDMAEnable       = 0x%08X\n", data);
+printk("IOCTL : [MP2TS] 1. GetIDMAEnable       = 0x%08X\n", data);
 
                 data = NX_MPEGTSI_GetIDMAIntEnable();
-                printk("IOCTL : [MP2TS] 1. GetIDMAIntEnable    = 0x%08X\n", data);
+printk("IOCTL : [MP2TS] 1. GetIDMAIntEnable    = 0x%08X\n", data);
 #endif
 
                 ret = 0;
@@ -1694,8 +1712,11 @@ error_prepare:
 /* register/remove driver */
 static int nexell_mpegts_probe(struct platform_device *pdev)
 {
-    int i, ret;
+    int i, dma_alloc_count;
+    int ret;
     struct nxp_mp2ts_plat_data *mp2ts_plat = pdev->dev.platform_data;
+    struct ts_buf_init_info     buf_info;
+
     one_sec_ticks = msecs_to_jiffies( 1000 );
 
     s_ctx = (struct ts_drv_context *)kzalloc(sizeof(struct ts_drv_context), GFP_KERNEL);
@@ -1740,13 +1761,33 @@ static int nexell_mpegts_probe(struct platform_device *pdev)
         s_ctx->ch_info[i].do_continue   = 0;
     }
 
+    dma_alloc_count = 0;
+    for (i = 0; i < 3; i++)
+    {
+        if (mp2ts_plat->ts_dma_size[i] < 0)
+            continue;
+
+        buf_info.ch_num     = i;
+        buf_info.page_size  = TS_PAGE_SIZE;
+        buf_info.page_num   = mp2ts_plat->ts_dma_size[i] / TS_PAGE_SIZE;
+
+        ret = _prepare_dma(i, s_ctx, &buf_info);
+        if (ret == 0) {
+            dma_alloc_count++;
+        }
+    }
+
+    if (dma_alloc_count == 0) {
+        ret = -EINVAL;
+        goto fail_init_context;
+    }
     ret = _init_context(s_ctx, mp2ts_plat);
-    if (ret) {
+    if (ret < 0) {
         goto fail_init_context;
     }
 
     ret = _init_device(s_ctx);
-    if (ret) {
+    if (ret < 0) {
         goto fail_init_device;
     }
 #if (CFG_MPEGTS_IDMA_MODE == 1)

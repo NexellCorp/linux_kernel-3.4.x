@@ -1635,6 +1635,11 @@ void usb_composite_unregister(struct usb_composite_driver *driver)
 	if (composite != driver)
 		return;
 	usb_gadget_unregister_driver(&composite_driver);
+	// psw0523 add
+#ifdef CONFIG_PM
+	composite = NULL;
+#endif
+	// end psw0523
 }
 
 /**
