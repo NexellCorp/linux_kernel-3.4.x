@@ -23,6 +23,8 @@
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <mach/platform.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
 #include <linux/platform_device.h>
 
 #include <mach/devices.h>
@@ -71,9 +73,13 @@ enum NXP_HDMI_PRESET {
     NXP_HDMI_PRESET_MAX
 };
 
+#define HDMI_PLUG_READY		(0<<0)
+#define HDMI_PLUG_START		(1<<0)
+#define HDMI_PLUG_DONE		(1<<1)
+
 struct nxp_hdmi_context {
     bool initialized;
-    bool streaming;
+    unsigned int plug_in;
 
     u32 audio_codec;
     bool audio_enable;
@@ -100,7 +106,14 @@ struct nxp_hdmi_context {
     u32 width;
     u32 height;
     int source_device;
+    int internal_irq;
+    int external_irq;
+    int connect;
+    struct delayed_work hpd_work;
+    enum disp_dev_type input;
 };
+
+#define	HDMI_PLUG(s)	(s==HDMI_PLUG_READY?"READY":(s==HDMI_PLUG_START?"START":"DONE"))
 
 static struct nxp_hdmi_context *_context = NULL;
 
@@ -134,7 +147,7 @@ static int _hdmi_phy_enable(struct nxp_hdmi_context *me, int enable)
     	NX_HDMI_SetReg(0, HDMI_PHY_Reg7C, 0x80);
     	NX_HDMI_SetReg(0, HDMI_PHY_Reg7C, (1<<7));
     	NX_HDMI_SetReg(0, HDMI_PHY_Reg7C, (1<<7));
-    	DBGOUT("%s: preset = %d\n", __func__, me->cur_preset);
+    	DBGOUT("hdmi phy %s (preset = %d)\n", enable?"ON":"OFF", me->cur_preset);
     }
 
     return 0;
@@ -505,18 +518,6 @@ static int _hdmi_setup(struct nxp_hdmi_context *me)
     return 0;
 }
 
-static void _hdmi_start(struct nxp_hdmi_context *me)
-{
-    u32 regval = NX_HDMI_GetReg(0, HDMI_LINK_HDMI_CON_0)| 0x01;
-    NX_HDMI_SetReg(0, HDMI_LINK_HDMI_CON_0, regval);
-
-    NX_DISPLAYTOP_HDMI_SetVSyncStart(me->v_sync_start);
-    NX_DISPLAYTOP_HDMI_SetHActiveStart(me->h_active_start);
-    NX_DISPLAYTOP_HDMI_SetHActiveEnd(me->h_active_end);
-    NX_DISPLAYTOP_HDMI_SetVSyncHSStartEnd(me->v_sync_hs_start_end0, me->v_sync_hs_start_end1);
-    DBGOUT("%s\n", __func__);
-}
-
 static void _hdmi_reg_infoframe(struct nxp_hdmi_context *me,
         struct hdmi_infoframe *infoframe,
         const struct hdmi_3d_info *info_3d)
@@ -637,6 +638,23 @@ static void _hdmi_set_packets(struct nxp_hdmi_context *me)
     soc_hdmi_set_acr(me->sample_rate, me->is_dvi);
 }
 
+static int _hdmi_set_preset(int preset)
+{
+    struct nxp_hdmi_context *me = _context;
+
+    if (!me) {
+        printk(KERN_ERR "hdmi soc driver not probed!!!\n");
+        return -ENODEV;
+    }
+
+    if (preset >= NXP_HDMI_PRESET_MAX) {
+        printk(KERN_ERR "%s: invalid preset %d\n", __func__, preset);
+        return -EINVAL;
+    }
+
+    return 0;
+}
+
 void _hdmi_initialize(void)
 {
     struct nxp_hdmi_context *me = _context;
@@ -689,117 +707,169 @@ void _hdmi_initialize(void)
 }
 
 /* int nxp_soc_disp_hdmi_streamon(struct nxp_hdmi_context *me) */
-static int _hdmi_prepare(int enable)
+static int _hdmi_prepare(struct nxp_hdmi_context *me)
 {
-    int ret;
-    struct nxp_hdmi_context *me = _context;
+    int ret = 0;
 
-    if (!me) {
-        printk(KERN_ERR "hdmi soc driver not probed!!!\n");
-        return -ENODEV;
+	mutex_lock(&me->mutex);
+
+	me->plug_in = HDMI_PLUG_START;
+	DBGOUT("hdmi prepare plugin=%d, plug=%s\n", me->connect, HDMI_PLUG(me->plug_in));
+
+    /**
+     * [SEQ 5] set up the HDMI PHY to specific video clock.
+     */
+    ret = _hdmi_phy_enable(me, 1);
+    if (ret < 0) {
+        printk(KERN_ERR "%s: _hdmi_phy_enable() failed\n", __func__);
+    	goto _end_prepare;
     }
 
-    if (enable && !me->streaming) {
-        /**
-         * [SEQ 5] set up the HDMI PHY to specific video clock.
-         */
-        ret = _hdmi_phy_enable(me, 1);
-        if (ret < 0) {
-            printk(KERN_ERR "%s: _hdmi_phy_enable() failed\n", __func__);
-            return ret;
-        }
+    /**
+     * [SEQ 6] I2S (or SPDIFTX) configuration for the source audio data
+     * this is done in another user app  - ex> Android Audio HAL
+     */
 
-        /**
-         * [SEQ 6] I2S (or SPDIFTX) configuration for the source audio data
-         * this is done in another user app  - ex> Android Audio HAL
-         */
-
-        /**
-         * [SEQ 7] Wait for ECID ready
-         */
-        if(false == _wait_for_ecid_ready()) {
-            printk(KERN_ERR "%s: failed to wait for ecid ready\n", __func__);
-            _hdmi_phy_enable(me, 0);
-            return -EIO;
-        }
-
-        /**
-         * [SEQ 8] release the resets of HDMI.i_VIDEO_nRST and HDMI.i_SPDIF_nRST and HDMI.i_TMDS_nRST
-         */
-        _hdmi_reset();
-
-        /**
-         * [SEQ 9] Wait for HDMI PHY ready (wait until 0xC0200020.[0], 1)
-         */
-        if (false == _wait_for_hdmiphy_ready()) {
-            printk(KERN_ERR "%s: failed to wait for hdmiphy ready\n", __func__);
-            _hdmi_phy_enable(me, 0);
-            return -EIO;
-        }
-
-		/* set mux */
-        _hdmi_mux(me);
-
-        /**
-         * [SEC 10] Set the DPC CLKGEN’s Source Clock to HDMI_CLK & Set Sync Parameter
-         */
-        _hdmi_clock(); /* set hdmi link clk to clkgen  vs default is hdmi phy clk */
-
-        /**
-         * [SEQ 11] Set up the HDMI Converter parameters
-         */
-        _hdmi_setup(me);
-        _hdmi_set_infoframe(me);
-        _hdmi_set_packets(me);
-        soc_hdmi_audio_spdif_init(me->audio_codec, me->bits_per_sample);
-
-        if (me->audio_enable)
-            soc_hdmi_audio_enable(true);
+    /**
+     * [SEQ 7] Wait for ECID ready
+     */
+    if(false == _wait_for_ecid_ready()) {
+        printk(KERN_ERR "%s: failed to wait for ecid ready\n", __func__);
+        _hdmi_phy_enable(me, 0);
+        ret = -EIO;
+        goto _end_prepare;
     }
 
-    return 0;
+    /**
+     * [SEQ 8] release the resets of HDMI.i_VIDEO_nRST and HDMI.i_SPDIF_nRST and HDMI.i_TMDS_nRST
+     */
+    _hdmi_reset();
+
+    /**
+     * [SEQ 9] Wait for HDMI PHY ready (wait until 0xC0200020.[0], 1)
+     */
+    if (false == _wait_for_hdmiphy_ready()) {
+        printk(KERN_ERR "%s: failed to wait for hdmiphy ready\n", __func__);
+        _hdmi_phy_enable(me, 0);
+        ret = -EIO;
+        goto _end_prepare;
+    }
+
+	/*set mux */
+    _hdmi_mux(me);
+
+    /**
+     * [SEC 10] Set the DPC CLKGEN’s Source Clock to HDMI_CLK & Set Sync Parameter
+     */
+    _hdmi_clock(); /* set hdmi link clk to clkgen  vs default is hdmi phy clk */
+
+    /**
+     * [SEQ 11] Set up the HDMI Converter parameters
+     */
+    _hdmi_setup(me);
+    _hdmi_set_infoframe(me);
+    _hdmi_set_packets(me);
+    soc_hdmi_audio_spdif_init(me->audio_codec, me->bits_per_sample);
+
+    if (me->audio_enable)
+        soc_hdmi_audio_enable(true);
+
+
+_end_prepare:
+
+	if (0 > ret)
+		me->plug_in = HDMI_PLUG_READY;
+
+	mutex_unlock(&me->mutex);
+
+    return ret;
 }
 
-static int _hdmi_set_preset(int preset)
+static void _hdmi_start(struct nxp_hdmi_context *me)
 {
-    struct nxp_hdmi_context *me = _context;
+    u32 regval;
 
-    if (!me) {
-        printk(KERN_ERR "hdmi soc driver not probed!!!\n");
-        return -ENODEV;
-    }
+    mutex_lock(&me->mutex);
 
-    if (preset >= NXP_HDMI_PRESET_MAX) {
-        printk(KERN_ERR "%s: invalid preset %d\n", __func__, preset);
-        return -EINVAL;
-    }
+	DBGOUT("hdmi start connect=%d, plug=%s\n", me->connect, HDMI_PLUG(me->plug_in));
+	if (HDMI_PLUG_START != me->plug_in) {
+		printk("Fail, hdmi not prepare... (%d, %s)\n", me->connect, HDMI_PLUG(me->plug_in));
+		goto _end_start;
+	}
 
-    return 0;
+    regval = NX_HDMI_GetReg(0, HDMI_LINK_HDMI_CON_0)| 0x01;
+    NX_HDMI_SetReg(0, HDMI_LINK_HDMI_CON_0, regval);
+
+    NX_DISPLAYTOP_HDMI_SetVSyncStart(me->v_sync_start);
+    NX_DISPLAYTOP_HDMI_SetHActiveStart(me->h_active_start);
+    NX_DISPLAYTOP_HDMI_SetHActiveEnd(me->h_active_end);
+    NX_DISPLAYTOP_HDMI_SetVSyncHSStartEnd(me->v_sync_hs_start_end0, me->v_sync_hs_start_end1);
+
+	mdelay(5);
+    me->plug_in = HDMI_PLUG_DONE;
+
+_end_start:
+    mutex_unlock(&me->mutex);
 }
 
-static int  hdmi_prepare(struct disp_process_dev *dev)
+static void _hdmi_stop(struct nxp_hdmi_context *me)
 {
-	DBGOUT("%s %s\n", __func__, dev_to_str(dev->dev_id));
+	mutex_lock(&me->mutex);
+	DBGOUT("hdmi stop plugin=%d, plug=%s\n", me->connect, HDMI_PLUG(me->plug_in));
 
-	return _hdmi_prepare(1);
+   	_hdmi_phy_enable(me, 0);
+   	me->plug_in = HDMI_PLUG_READY;
+
+	mutex_unlock(&me->mutex);
 }
 
-static int  hdmi_enable(struct disp_process_dev *dev, int enable)
+static int _hdmi_in_enable(int enable)
+{
+	struct nxp_hdmi_context *me = _context;
+	return nxp_soc_disp_device_enable(me->source_device, enable);
+}
+
+static void _hdmi_hpd_work(struct work_struct *work)
 {
     struct nxp_hdmi_context *me = _context;
-	DBGOUT("%s %s, %s\n", __func__, dev_to_str(dev->dev_id), enable?"ON":"OFF");
+	DBGOUT("hdmi detect plugin=%d, plug=%s\n", me->connect, HDMI_PLUG(me->plug_in));
 
-	if (enable) {
-        /* hdmi_set_dvi_mode(me->is_dvi); */
-        _hdmi_start(me);
-        mdelay(5);
-        me->streaming = true;
- 	} else {
-        me->streaming = false;
-   		_hdmi_phy_enable(me, 0);
+	if (me->connect) {
+		if (HDMI_PLUG_READY != me->plug_in)
+			return;
+
+		_hdmi_prepare(me);
+		_hdmi_in_enable(1);
+		_hdmi_start(me);
+	} else {
+		_hdmi_stop(me);
+		_hdmi_in_enable(0);
+	}
+}
+
+static irqreturn_t _hdmi_irq_handler(int irq, void *dev_data)
+{
+    struct nxp_hdmi_context *me = _context;
+    u32 flag;
+
+    /* flag = NX_HDMI_GetReg(0, HDMI_LINK_INTC_FLAG_0); */
+    flag = hdmi_read(HDMI_LINK_INTC_FLAG_0);
+    printk("hdmi [%s]\n", flag&HDMI_INTC_FLAG_HPD_UNPLUG?"UN PLUG":"PLUG IN");
+
+    if (flag & HDMI_INTC_FLAG_HPD_UNPLUG) {
+		hdmi_write_mask(HDMI_LINK_INTC_FLAG_0, ~0, HDMI_INTC_FLAG_HPD_UNPLUG);
+        me->connect = 0;
+    }
+    if (flag & HDMI_INTC_FLAG_HPD_PLUG) {
+        /* ignore plug in interrupt */
+		hdmi_write_mask(HDMI_LINK_INTC_FLAG_0, ~0, HDMI_INTC_FLAG_HPD_PLUG);
+        me->connect = 1;
     }
 
-	return 0;
+    /* queue_work(system_nrt_wq, &me->hpd_work); */
+    queue_delayed_work(system_nrt_wq, &me->hpd_work, msecs_to_jiffies(1000));
+
+    return IRQ_HANDLED;
 }
 
 static int hdmi_get_vsync(struct disp_process_dev *pdev, struct disp_vsync_info *psync)
@@ -812,6 +882,31 @@ static int hdmi_get_vsync(struct disp_process_dev *pdev, struct disp_vsync_info 
 	return _get_vsync_info(me->cur_preset, source_device, psync, NULL);
 }
 
+static int  hdmi_prepare(struct disp_process_dev *dev)
+{
+	struct nxp_hdmi_context *me = _context;
+	int ret = -1;
+	DBGOUT("%s %s\n", __func__, dev_to_str(dev->dev_id));
+
+	if (me->connect)
+		ret = _hdmi_prepare(me);
+
+	return ret;
+}
+
+static int  hdmi_enable(struct disp_process_dev *dev, int enable)
+{
+    struct nxp_hdmi_context *me = _context;
+	DBGOUT("%s %s, %s\n", __func__, dev_to_str(dev->dev_id), enable?"ON":"OFF");
+
+	if (enable && me->connect)
+        _hdmi_start(me);
+ 	else
+ 		_hdmi_stop(me);
+
+	return 0;
+}
+
 static int  hdmi_stat_enable(struct disp_process_dev *pdev)
 {
 	return pdev->status & PROC_STATUS_ENABLE ? 1 : 0;
@@ -822,8 +917,7 @@ static int  hdmi_suspend(struct disp_process_dev *pdev)
 	struct nxp_hdmi_context *me = _context;
 	PM_DBGOUT("%s\n", __func__);
 
-	me->streaming = false;
-   	_hdmi_phy_enable(me, 0);
+	_hdmi_stop(me);
 
 	return 0;
 }
@@ -835,10 +929,13 @@ static void hdmi_pre_resume(struct disp_process_dev *pdev)
 
 	me->initialized = false;
 	_hdmi_initialize();
+	_hdmi_set_preset(me->cur_preset);
 
-	me->streaming = false;
-	_hdmi_prepare(1);
-    me->streaming = true;
+	disable_irq(me->internal_irq);
+    NX_HDMI_SetReg(0, HDMI_LINK_INTC_CON_0, (1<<6)|(1<<3)|(1<<2));	/* irq */
+
+	if (me->connect)
+		_hdmi_prepare(me);
 }
 
 static void hdmi_resume(struct disp_process_dev *pdev)
@@ -846,9 +943,12 @@ static void hdmi_resume(struct disp_process_dev *pdev)
 	struct nxp_hdmi_context *me = _context;
 	PM_DBGOUT("%s\n", __func__);
 
-	_hdmi_start(me);
-    mdelay(5);
-    me->streaming = true;
+	enable_irq(me->internal_irq);
+
+	if (me->connect)
+		_hdmi_start(me);
+	else
+		_hdmi_stop(me);
 }
 
 static struct disp_process_ops hdmi_ops = {
@@ -869,6 +969,7 @@ static int hdmi_probe(struct platform_device *pdev)
     struct disp_vsync_info vsync;
     struct disp_syncgen_par sgpar;
     int device = DISP_DEVICE_HDMI;
+	int ret = 0;
 
 	RET_ASSERT_VAL(plat, -EINVAL);
 	RET_ASSERT_VAL(plat->display_in == DISP_DEVICE_SYNCGEN0 ||
@@ -888,8 +989,10 @@ static int hdmi_probe(struct platform_device *pdev)
 	if (plat->dev_param)
 		memcpy(phdmi, plat->dev_param, sizeof(*phdmi));
 
+    hdmi_set_base((void *)IO_ADDRESS(NX_HDMI_GetPhysicalAddress(0)));
+
     _context = ctx;
-    _context->cur_preset = phdmi->preset;
+    _context->cur_preset = phdmi ? phdmi->preset : 0;
     _context->source_device = plat->display_in;
 
     mutex_init(&_context->mutex);
@@ -902,8 +1005,19 @@ static int hdmi_probe(struct platform_device *pdev)
     _context->bits_per_sample = DEFAULT_BITS_PER_SAMPLE;
     _context->audio_codec = DEFAULT_AUDIO_CODEC;
     _context->aspect = HDMI_ASPECT_RATIO_16_9;
+    _context->internal_irq = NX_HDMI_GetInterruptNumber(0);
+    _context->external_irq = (phdmi ? (phdmi->external_irq != -1 ? phdmi->external_irq : -1): -1);
+	_context->plug_in = HDMI_PLUG_READY;
 
-    hdmi_set_base((void *)IO_ADDRESS(NX_HDMI_GetPhysicalAddress(0)));
+    ret = request_irq(_context->internal_irq, _hdmi_irq_handler, 0,
+            "hdmi-soc-int", _context);
+    if (0 > ret) {
+        pr_err("Fail: HDMI request_irq(%d)\n", _context->internal_irq);
+        goto _irq_fail;
+    }
+    disable_irq(_context->internal_irq);
+
+	INIT_DELAYED_WORK(&_context->hpd_work, _hdmi_hpd_work);
 
 	_get_vsync_info(_context->cur_preset, _context->source_device, &vsync, &sgpar);
 
@@ -919,10 +1033,19 @@ static int hdmi_probe(struct platform_device *pdev)
 	nxp_soc_disp_register_proc_ops(DISP_DEVICE_HDMI, &hdmi_ops);
 	nxp_soc_disp_device_connect_to(DISP_DEVICE_HDMI, _context->source_device, &vsync);
 
-	printk("HDMI: [%d]=%s connect to [%d]=%s\n",
-		device, dev_to_str(device), plat->display_in, dev_to_str(plat->display_in));
+	printk("HDMI: [%d]=%s connect to [%d]=%s (%s)\n",
+		device, dev_to_str(device), plat->display_in, dev_to_str(plat->display_in),
+			HDMI_PLUG(_context->plug_in));
+
+    NX_HDMI_SetReg(0, HDMI_LINK_INTC_CON_0, (1<<6)|(1<<3)|(1<<2));
+    enable_irq(_context->internal_irq);
 
 	return 0;
+
+_irq_fail:
+	if (phdmi)
+    	kfree(phdmi);
+	return ret;
 }
 
 static struct platform_driver hdmi_driver = {

@@ -331,6 +331,8 @@ struct disp_mipi_param {
 // HDMI
 struct disp_hdmi_param {
     int preset;         	/* 0 = 1280 * 720p, 1=1920 * 1080p */
+    int internal_irq;
+    int external_irq;
 };
 
 // Resolution convertor
