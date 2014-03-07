@@ -82,6 +82,9 @@
 
 #define CFG_DISP_PRI_MLC_INTERLACE              CFALSE
 
+#define	CFG_DISP_PRI_LCD_WIDTH_MM				152.4
+#define	CFG_DISP_PRI_LCD_HEIGHT_MM				91.44
+
 #define CFG_DISP_PRI_RESOL_WIDTH          		1280	// X Resolution
 #define CFG_DISP_PRI_RESOL_HEIGHT				 720	// Y Resolution
 
@@ -112,49 +115,8 @@
 #define CFG_DISP_PRI_OUT_YCORDER                DPC_YCORDER_CbYCrY
 #define CFG_DISP_PRI_OUT_INTERLACE              CFALSE
 #define CFG_DISP_PRI_OUT_INVERT_FIELD           CFALSE
+#define CFG_DISP_LCD_MPY_TYPE						0
 
-/* Secondary */
-#define CFG_DISP_SEC_SCREEN_LAYER               1
-#define CFG_DISP_SEC_SCREEN_RGB_FORMAT          MLC_RGBFMT_R5G6B5
-#define CFG_DISP_SEC_SCREEN_PIXEL_BYTE	        2
-#define CFG_DISP_SEC_SCREEN_COLOR_KEY	        0x090909
-
-#define CFG_DISP_SEC_VIDEO_PRIORITY				2	// 0, 1, 2, 3
-#define CFG_DISP_SEC_BACK_GROUND_COLOR	     	0x0
-
-#define CFG_DISP_SEC_MLC_INTERLACE              CFALSE
-#define	CFG_DISP_SEC_MLC_LOCKSIZE				8
-
-#define CFG_DISP_SEC_RESOL_WIDTH          		1280	// X Resolution
-#define CFG_DISP_SEC_RESOL_HEIGHT				 800	// Y Resolution
-
-#define CFG_DISP_SEC_HSYNC_SYNC_WIDTH           1
-#define CFG_DISP_SEC_HSYNC_BACK_PORCH           0
-#define CFG_DISP_SEC_HSYNC_FRONT_PORCH          160
-#define CFG_DISP_SEC_HSYNC_ACTIVE_HIGH          CFALSE
-#define CFG_DISP_SEC_VSYNC_SYNC_WIDTH           1
-#define CFG_DISP_SEC_VSYNC_BACK_PORCH           0
-#define CFG_DISP_SEC_VSYNC_FRONT_PORCH          23
-#define CFG_DISP_SEC_VSYNC_ACTIVE_HIGH 	        CFALSE
-
-#define CFG_DISP_SEC_CLKGEN0_SOURCE             DPC_VCLK_SRC_PLL1
-#define CFG_DISP_SEC_CLKGEN0_DIV                2
-#define CFG_DISP_SEC_CLKGEN0_DELAY              0
-#define CFG_DISP_SEC_CLKGEN0_INVERT				0
-#define CFG_DISP_SEC_CLKGEN1_SOURCE             DPC_VCLK_SRC_VCLK2
-#define CFG_DISP_SEC_CLKGEN1_DIV                1
-#define CFG_DISP_SEC_CLKGEN1_DELAY              0
-#define CFG_DISP_SEC_CLKGEN1_INVERT				0
-#define CFG_DISP_SEC_CLKSEL1_SELECT				0
-#define CFG_DISP_SEC_PADCLKSEL                  DPC_PADCLKSEL_VCLK	/* VCLK=CLKGEN1, VCLK12=CLKGEN0 */
-
-#define	CFG_DISP_SEC_PIXEL_CLOCK				70000000
-
-#define	CFG_DISP_SEC_OUT_SWAPRB 				CFALSE
-#define CFG_DISP_SEC_OUT_FORMAT                 DPC_FORMAT_RGB666
-#define CFG_DISP_SEC_OUT_YCORDER                DPC_YCORDER_CbYCrY
-#define CFG_DISP_SEC_OUT_INTERLACE              CFALSE
-#define CFG_DISP_SEC_OUT_INVERT_FIELD           CFALSE
 
 /*------------------------------------------------------------------------------
  * 	PWM

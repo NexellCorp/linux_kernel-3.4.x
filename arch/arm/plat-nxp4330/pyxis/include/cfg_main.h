@@ -76,6 +76,9 @@
 
 #define CFG_DISP_PRI_MLC_INTERLACE              CFALSE
 
+#define	CFG_DISP_PRI_LCD_WIDTH_MM				152.4
+#define	CFG_DISP_PRI_LCD_HEIGHT_MM				91.44
+
 #define CFG_DISP_PRI_RESOL_WIDTH          		800	// X Resolution
 #define CFG_DISP_PRI_RESOL_HEIGHT				1280	// Y Resolution
 
@@ -102,10 +105,11 @@
 #define	CFG_DISP_PRI_PIXEL_CLOCK				800000000/CFG_DISP_PRI_CLKGEN0_DIV
 
 #define	CFG_DISP_PRI_OUT_SWAPRB 				CFALSE
-#define CFG_DISP_PRI_OUT_FORMAT                 DPC_FORMAT_RGB666
+#define CFG_DISP_PRI_OUT_FORMAT                 DPC_FORMAT_RGB888
 #define CFG_DISP_PRI_OUT_YCORDER                DPC_YCORDER_CbYCrY
 #define CFG_DISP_PRI_OUT_INTERLACE              CFALSE
 #define CFG_DISP_PRI_OUT_INVERT_FIELD           CFALSE
+#define CFG_DISP_LCD_MPY_TYPE						0
 
 /*------------------------------------------------------------------------------
  * 	LVDS

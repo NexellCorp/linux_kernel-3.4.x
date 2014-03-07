@@ -414,12 +414,12 @@ _get_pad_crop(struct nxp_resc *me, struct v4l2_subdev_fh *fh,
 }
 
 static int _get_vsync_info(struct nxp_resc *me, int device,
-        struct disp_vsync_info *vsync, struct disp_syncgen_param *par)
+        struct disp_vsync_info *vsync, struct disp_syncgen_par *par)
 {
     int width = me->format[NXP_RESC_PAD_SINK].width;
     int height = me->format[NXP_RESC_PAD_SINK].height;
 
-    nxp_soc_disp_device_get_param(device, (void *)par);
+    nxp_soc_disp_device_get_sync_param(device, (void *)par);
 
     vsync->h_active_len = width;
     vsync->v_active_len = height;
@@ -474,11 +474,11 @@ static int _get_vsync_info(struct nxp_resc *me, int device,
 }
 
 static int _get_vsync_info_with_preset(struct nxp_resc *me, int device,
-        struct disp_vsync_info *vsync, struct disp_syncgen_param *par)
+        struct disp_vsync_info *vsync, struct disp_syncgen_par *par)
 {
     struct dpc_sync_param *preset = &me->preset->dpc_sync_param;
 
-    nxp_soc_disp_device_get_param(device, (void *)par);
+    nxp_soc_disp_device_get_sync_param(device, (void *)par);
 
     vsync->h_active_len      = preset->hact;
     vsync->v_active_len      = preset->vact;
@@ -519,7 +519,7 @@ static int _set_remote_sync(struct nxp_resc *me)
 {
     int ret;
     struct disp_vsync_info vsync;
-    struct disp_syncgen_param param;
+    struct disp_syncgen_par param;
     int source_device;
     struct v4l2_subdev *remote_source;
 
@@ -556,9 +556,9 @@ static int _set_remote_sync(struct nxp_resc *me)
         }
 
         pr_debug("%s: RESC Source Device 0x%x\n", __func__, source_device);
-        ret = nxp_soc_disp_device_set_param(source_device, (void *)&param);
+        ret = nxp_soc_disp_device_set_sync_param(source_device, (void *)&param);
         if (ret) {
-            pr_err("%s: failed to nxp_soc_disp_device_set_param()\n", __func__);
+            pr_err("%s: failed to nxp_soc_disp_device_set_sync_param()\n", __func__);
             return ret;
         }
 

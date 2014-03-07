@@ -62,7 +62,7 @@ extern struct ion_device *get_global_ion_device(void);
 */
 
 #if (0)
-#define DBGOUT(msg...)		{ printk(KERN_INFO "fb: " msg); }
+#define DBGOUT(msg...)		{ printk(KERN_INFO msg); }
 #define	DUMP_VAR_SCREENINFO
 #else
 #define DBGOUT(msg...)		do {} while (0)
@@ -217,7 +217,7 @@ static void nxp_fb_copy_boot_logo(struct nxp_fb_param *par, int size)
 	}
 
  	if (phys && 0 == virt) {
-		printk("%s fail boot logo copy from 0x%08x to 0x%08x (0x%08x)\n",
+		printk("%s Fail boot logo copy from 0x%08x to 0x%08x (0x%08x)\n",
 			__func__, phys, base, dest);
 		__memblock_dump_all();
 	}
@@ -250,11 +250,10 @@ nxp_fb_init_display(struct fb_info *info)
 	nxp_fb_copy_boot_logo(par, (xres * yres * pixel));
 	#else
 	memset((void*)par->fb_dev.fb_vir_base,
-			FB_CLEAR_COLOR,
-			par->fb_dev.fb_phy_len);
+			FB_CLEAR_COLOR, par->fb_dev.fb_phy_len);
 	#endif
 
-	#if !defined(CONFIG_BACKLIGHT_PWM)
+	#if !defined(CONFIG_BACKLIGHT_PWM) || !defined(CONFIG_LOGO_NEXELL_COPY)
 	nxp_fb_setup_display_out(par, 0);	/* display out : off */
     #endif
 
@@ -269,8 +268,8 @@ nxp_fb_init_display(struct fb_info *info)
 
 	par->status = FB_STAT_INIT;
 
-	printk(KERN_INFO "%s: %d * %d - %d bpp (phys:%08x virt:0x%p max:%d)\n",
-		info->fix.id, xres, yres, pixel<<3,
+	printk(KERN_INFO "%s: out[%d], %d * %d - %d bpp (phys:%08x virt:0x%p max:%d)\n",
+		info->fix.id, module, xres, yres, pixel<<3,
 		par->fb_dev.fb_phy_base, par->fb_dev.fb_vir_base, par->fb_dev.fb_phy_len);
 }
 
@@ -363,9 +362,7 @@ static void nxp_fb_dump_var(struct fb_var_screeninfo *var)
  * 	FB
  */
 static struct fb_ops nxp_fb_ops;
-
-static struct fb_info *
-nxp_fb_init_fb(int fb, struct device *dev)
+static struct fb_info *nxp_fb_init_fb(int fb, struct device *dev)
 {
 	struct fb_info * info = NULL;
 	char name[256];
@@ -378,13 +375,13 @@ nxp_fb_init_fb(int fb, struct device *dev)
 	 */
 	info = framebuffer_alloc(sizeof(struct nxp_fb_param), dev);
 	if (! info) {
-		printk(KERN_ERR "fail, unable to allocate frame buffer(%d) info ...\n", fb);
+		printk(KERN_ERR "Fail, unable to allocate frame buffer(%d) info ...\n", fb);
 		return NULL;
 	}
 
 	/* fb_info members */
 	sprintf(name, "%s %d", DEV_NAME_FB, fb);
-	strcpy(info->fix.id, name);			/* name filed */
+	strcpy(info->fix.id, name);
 
 	/* default fixed information */
 	info->fix.type	    	= FB_TYPE_PACKED_PIXELS;
@@ -406,7 +403,7 @@ nxp_fb_init_fb(int fb, struct device *dev)
 
 	/* default colormap: palette */
 	if(fb_alloc_cmap(&info->cmap, 256, 0)) {
-		printk(KERN_ERR "fail, unable to allocate cmap for frame buffer(%d) ...\n", fb);
+		printk(KERN_ERR "Fail, unable to allocate cmap for frame buffer(%d) ...\n", fb);
 		framebuffer_release(info);
 		return NULL;
 	}
@@ -419,31 +416,44 @@ static void nxp_fb_exit_fb(struct fb_info *info)
 	framebuffer_release(info);
 }
 
-static void nxp_fb_setup_param(struct fb_info *info, void *data)
+static int nxp_fb_setup_param(struct fb_info *info, void *data)
 {
 	struct nxp_fb_plat_data *plat = data;
 	struct nxp_fb_param  *par = info->par;
 	struct nxp_fb_device *dev = &par->fb_dev;
-	struct disp_vsync_info vsync;
-	int display_out = 0;
+	struct disp_vsync_info vsi = { 0, };
+	enum disp_dev_type device = DISP_DEVICE_SYNCGEN0;
+	int x_resol, y_resol;
 	int i;
 
-	par->info = info;
-	par->status = 0;
+	/* get from output device */
+	if (1 == plat->module)
+		device = DISP_DEVICE_SYNCGEN1;
+
+	if (0 > nxp_soc_disp_device_get_vsync_info(device, &vsi)) {
+		printk(KERN_ERR "Fail to get framebuffer video sync (display.%d)\n", plat->module);
+		return -EINVAL;
+	}
+
+	/* get from output device sync */
+	x_resol = vsi.h_active_len ? vsi.h_active_len : plat->x_resol;
+	y_resol = vsi.v_active_len ? vsi.v_active_len : plat->y_resol;
 
 	/* clear palette buffer */
+	par->info = info;
+	par->status = 0;
 	for(i = 0; i < 256; i++)
 		par->palette_buffer[i] = FB_PALETTE_CLEAR;
 
 	/* set hw variables */
 	dev->device_id    = plat->module;
 	dev->layer    	  = plat->layer;
-	dev->x_resol_max  = plat->x_resol_max ? plat->x_resol_max : plat->x_resol;
-	dev->y_resol_max  = plat->y_resol_max ? plat->y_resol_max : plat->y_resol;
-	dev->x_resol 	  = plat->x_resol;
-	dev->y_resol 	  = plat->y_resol;
-	dev->x_virt		  = plat->x_resol;
-	dev->y_virt		  = plat->y_resol * plat->buffers;
+	dev->x_resol_max  = plat->x_resol_max ? plat->x_resol_max : x_resol;
+	dev->y_resol_max  = plat->y_resol_max ? plat->y_resol_max : y_resol;
+	dev->x_resol 	  = x_resol;
+	dev->y_resol 	  = y_resol;
+	dev->x_virt		  = x_resol;
+	dev->y_virt		  = y_resol * plat->buffers;
 	dev->buffer_num	  = plat->buffers;
 	dev->pixelbit 	  = plat->bitperpixel;
 	dev->format		  = plat->format;
@@ -454,22 +464,18 @@ static void nxp_fb_setup_param(struct fb_info *info, void *data)
 	dev->fb_phy_end   = plat->fb_mem_end;
 	dev->fb_pan_phys  = plat->fb_mem_base;
 
-	if (!plat->vsync) {
-		display_out = 0 == plat->module ? DISP_DEVICE_SYNCGEN0 : DISP_DEVICE_SYNCGEN1;
-		nxp_soc_disp_device_get_vsync(display_out, &vsync);
-		plat->vsync = &vsync;
-	}
-
-	dev->hs_left	  = plat->vsync->h_sync_width + plat->vsync->h_back_porch;
-	dev->hs_right	  = plat->vsync->h_front_porch;
-	dev->vs_upper	  = plat->vsync->v_sync_width + plat->vsync->v_back_porch;
-	dev->vs_lower	  = plat->vsync->v_front_porch;
-	dev->pixelclk	  = plat->vsync->pixel_clock_hz ? plat->vsync->pixel_clock_hz : FB_DEV_PIXELCLOCK;
+	dev->hs_left	  = vsi.h_sync_width + vsi.h_back_porch;
+	dev->hs_right	  = vsi.h_front_porch;
+	dev->vs_upper	  = vsi.v_sync_width + vsi.v_back_porch;
+	dev->vs_lower	  = vsi.v_front_porch;
+	dev->pixelclk	  = vsi.pixel_clock_hz ? vsi.pixel_clock_hz : FB_DEV_PIXELCLOCK;
 	dev->skip_vsync   = plat->skip_pan_vsync ? 1 : 0;
 
 	dev->fb_vir_base  = 0;
 	dev->fb_remapped  = 0;
+
 	DBGOUT("%s (out dev=%d)\n", __func__, dev->device_id);
+	return 0;
 }
 
 static void nxp_fb_setup_info(struct fb_info *info)
@@ -532,7 +538,6 @@ static void nxp_fb_setup_info(struct fb_info *info)
 			break;
 	}
 
-
 	DBGOUT("res: %d by %d, virtual: %d by %d, length:%d\n",
 		dev->x_resol, dev->y_resol, x_v, y_v, info->fix.smem_len);
 }
@@ -543,7 +548,7 @@ static int nxp_fb_setup_ion(struct nxp_fb_dma_buf_data *d)
     struct ion_device *ion_dev = get_global_ion_device();
 
     if (!ion_dev) {
-        pr_err("%s error: no ion device!!!\n", __func__);
+        pr_err("%s Error: no ion device!!!\n", __func__);
         return -EINVAL;
     }
 
@@ -551,7 +556,7 @@ static int nxp_fb_setup_ion(struct nxp_fb_dma_buf_data *d)
             ION_HEAP_NXP_CONTIG_MASK,
             "nxp-fb");
     if (IS_ERR(d->ion_client)) {
-        pr_err("%s error: fail to ion_client_create()\n", __func__);
+        pr_err("%s Error: ion_client_create()\n", __func__);
         return -EINVAL;
     }
 
@@ -566,13 +571,13 @@ static int nxp_fb_map_ion_handle(struct nxp_fb_device *fb_dev,
 
     ctx->dma_buf = dma_buf_get(fd);
     if (IS_ERR_OR_NULL(ctx->dma_buf)) {
-        pr_err("%s error: fail to dma_buf_get(%d)\n", __func__, fd);
+        pr_err("%s Error: dma_buf_get(%d)\n", __func__, fd);
         return -EINVAL;
     }
 
     ctx->attachment = dma_buf_attach(ctx->dma_buf, fb_dev->dev);
     if (IS_ERR_OR_NULL(ctx->attachment)) {
-        pr_err("%s error: fail to dma_buf_attach()\n", __func__);
+        pr_err("%s Error: dma_buf_attach()\n", __func__);
         ret = -EINVAL;
         goto err_attachment;
     }
@@ -580,7 +585,7 @@ static int nxp_fb_map_ion_handle(struct nxp_fb_device *fb_dev,
     ctx->sg_table = dma_buf_map_attachment(ctx->attachment,
             DMA_BIDIRECTIONAL);
     if (IS_ERR_OR_NULL(ctx->sg_table)) {
-        pr_err("%s error: fail to dma_buf_map_attachment()\n", __func__);
+        pr_err("%s Error: dma_buf_map_attachment()\n", __func__);
         ret = -EINVAL;
         goto err_map_attachment;
     }
@@ -646,26 +651,26 @@ static int nxp_fb_ion_alloc_mem(struct nxp_fb_device *fb_dev)
         handle = ion_alloc(d->ion_client, (size_t)size, 0,
                 ION_HEAP_NXP_CONTIG_MASK, 0);
         if (IS_ERR(handle)) {
-            pr_err("%s error: fail to ion_alloc()\n", __func__);
+            pr_err("%s Error: ion_alloc()\n", __func__);
             return -ENOMEM;
         }
 
         fd = ion_share_dma_buf(d->ion_client, handle);
         if (fd < 0) {
-            pr_err("%s error: fail to ion_share_dma_buf()\n", __func__);
+            pr_err("%s Error: ion_share_dma_buf()\n", __func__);
             ret = -EINVAL;
             goto err_share_dma_buf;
         }
 
         ret = nxp_fb_map_ion_handle(fb_dev, ctx, handle, fd);
         if (ret) {
-            pr_err("%s error: fail to nxp_fb_map_ion_handle()\n", __func__);
+            pr_err("%s Error: nxp_fb_map_ion_handle()\n", __func__);
             goto err_map;
         }
 		/* Free FD */
         {
 	       	struct fdtable *fdt = files_fdtable(current->files);
-	       	struct file *file = fcheck_files(current->files, fd);
+	     // struct file *file = fcheck_files(current->files, fd);
         	rcu_assign_pointer(fdt->fd[fd], NULL);		/* release filep */
 	     //	atomic_long_dec_and_test(&file->f_count);	/* decrease f_count */
 		    put_unused_fd(fd);							/* clear open flag */
@@ -696,14 +701,14 @@ static int nxp_fb_alloc_mem(struct fb_info *info)
 	if(! length)
 		return 0;
 
-	DBGOUT("%s: %s fb%d (%d * %d - %d bpp), len:%d, align:%d, fb_phys=%u\n",
+	DBGOUT("%s: %s fb %d (%d * %d - %d bpp), len:%d, align:%d, fb_phys=%u\n",
 		__func__, dev_name(par->info->device), dev->device_id,
 		dev->x_resol_max, dev->y_resol_max, dev->pixelbit,
 		length, PAGE_ALIGN(length), dev->fb_phy_base);
 
 #ifdef CONFIG_FB_NEXELL_ION_MEM
     if (nxp_fb_ion_alloc_mem(dev)) {
-        printk(KERN_ERR "fail to nxp_fb_ion_alloc_mem()\n");
+        printk(KERN_ERR "Fail to nxp_fb_ion_alloc_mem()\n");
         return -ENOMEM;
     }
 
@@ -826,7 +831,7 @@ static int nxp_fb_set_var_pixfmt(struct fb_var_screeninfo *var, struct fb_info *
 			var->transp.offset	= info->var.transp.offset;
 			break;
 		default:
-			printk(KERN_ERR "error, not support fb bpp (%d)\n", var->bits_per_pixel);
+			printk(KERN_ERR "Error, not support fb bpp (%d)\n", var->bits_per_pixel);
 	}
 
 	return 0;
@@ -999,7 +1004,7 @@ static int nxp_fb_setcolreg(unsigned regno,
 		}
 		break;
 	default:
-		printk(KERN_ERR "fail, setcolreg return unknown type\n");
+		printk(KERN_ERR "Fail, setcolreg return unknown type\n");
 		return 1;   /* unknown type */
 	}
 	return 0;
@@ -1068,23 +1073,23 @@ static int nxp_fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long ar
                 ret = -EFAULT;
                 break;
             }
-            printk("%s: NXPFB_GET_FB_FD index(%d)\n", __func__, index);
+            DBGOUT("%s: NXPFB_GET_FB_FD index(%d)\n", __func__, index);
 #if 0
             fd = dma_buf_fd(d->context[index].dma_buf, 0);
 #else
             fd = ion_share_dma_buf(d->ion_client, d->context[index].ion_handle);
 #endif
             if (fd < 0) {
-                printk("%s NXPFB_GET_FB_FD failed: fail to dma_buf_fd()\n", __func__);
+                printk("%s NXPFB_GET_FB_FD failed: Fail to dma_buf_fd()\n", __func__);
                 ret = -EINVAL;
             } else {
-                printk("fd: %d\n", fd);
+                DBGOUT("fd: %d\n", fd);
                 d->context[index].user_fd = fd;
                 if (put_user(fd, (int __user *)arg)) {
                     ret = -EFAULT;
                     break;
                 }
-                printk("success!!!\n");
+                DBGOUT("success!!!\n");
             }
         }
         break;
@@ -1093,12 +1098,12 @@ static int nxp_fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long ar
         unsigned int offset = dev->fb_pan_phys - dev->dma_buf_data.context[0].dma_addr;
         unsigned int align  = (dev->x_resol * dev->y_resol * dev->pixelbit) >> 3;
         unsigned int index = offset / align;
-        printk("%s: NXPFB_GET_ACTIVE %d\n", __func__, index);
+        DBGOUT("%s: NXPFB_GET_ACTIVE %d\n", __func__, index);
         if (put_user(index, (int __user *)arg)) {
             ret = -EFAULT;
             break;
         }
-        printk("success!!!\n");
+        DBGOUT("success!!!\n");
     }
         break;
 	#if 0
@@ -1116,13 +1121,13 @@ static int nxp_fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long ar
 
             handle = ion_import_dma_buf(d->ion_client, import_fd);
             if (IS_ERR(handle)) {
-                pr_err("%s error: NXPFB_SET_FB_FD, fail to ion_import_dma_buf()\n", __func__);
+                pr_err("%s Error: NXPFB_SET_FB_FD, ion_import_dma_buf()\n", __func__);
                 ret = PTR_ERR(handle);
                 break;
             }
 
             if (nxp_fb_map_ion_handle(dev, &dma_buf_data, handle, import_fd)) {
-                pr_err("%s error: NXPFB_SET_FB_FD, fail to nxp_fb_map_ion_handle()\n", __func__);
+                pr_err("%s Error: NXPFB_SET_FB_FD, nxp_fb_map_ion_handle()\n", __func__);
                 ion_free(d->ion_client, handle);
                 ret = -EINVAL;
                 break;
@@ -1141,13 +1146,13 @@ static int nxp_fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long ar
 #ifdef CONFIG_FB_NEXELL_ION_MEM
 int nxp_fb_open(struct fb_info *info, int user)
 {
-    printk("%s entered\n", __func__);
+    DBGOUT("%s entered\n", __func__);
     return 0;
 }
 
 int nxp_fb_release(struct fb_info *info, int user)
 {
-    printk("%s entered\n", __func__);
+    DBGOUT("%s entered\n", __func__);
 #if 0
 	struct nxp_fb_param *par = info->par;
 	struct nxp_fb_device *dev = &par->fb_dev;
@@ -1211,9 +1216,14 @@ static int nxp_fb_resume(struct platform_device *pdev)
 
 static int nxp_fb_probe(struct platform_device *pdev)
 {
-	struct nxp_fb_plat_data * plat = pdev->dev.platform_data;
+	struct nxp_fb_plat_data *plat = pdev->dev.platform_data;
 	struct fb_info *info = NULL;
-	int ret = 0;
+#ifdef CONFIG_FB_NEXELL_ION_MEM
+    struct nxp_fb_device *fbdev;
+	struct nxp_fb_param *fbpar;
+#endif
+	int i = 0, ret = 0;
+
 	DBGOUT("\n%s (name=%s, id=%d)\n", __func__, dev_name(&pdev->dev), pdev->id);
 
 	/*	allocate fb_info and init */
@@ -1223,18 +1233,20 @@ static int nxp_fb_probe(struct platform_device *pdev)
 		goto err_fb;
 	}
 
-	nxp_fb_setup_param(info, plat);
-	nxp_fb_setup_info (info);
+	ret = nxp_fb_setup_param(info, plat);
+	if (0 > ret)
+		goto err_map;
+
+	nxp_fb_setup_info(info);
 
 #ifdef CONFIG_FB_NEXELL_ION_MEM
-    {
-        struct nxp_fb_param *par = info->par;
-        struct nxp_fb_device *fb_dev = &par->fb_dev;
-        fb_dev->dev = &pdev->dev;
-        ret = nxp_fb_setup_ion(&par->fb_dev.dma_buf_data);
-    }
-    if (ret) {
-        printk(KERN_ERR "fail, fail to setup ion\n");
+	fbpar = info->par;
+	fbdev = &fbpar->fb_dev;
+	fbdev->dev = &pdev->dev;
+
+    ret = nxp_fb_setup_ion(&fbpar->fb_dev.dma_buf_data);
+	if (ret) {
+        printk(KERN_ERR "Fail to setup ion\n");
         goto err_map;
     }
 #endif
@@ -1242,7 +1254,7 @@ static int nxp_fb_probe(struct platform_device *pdev)
 	/*	allocate frame buffer memory from here */
 	ret = nxp_fb_alloc_mem(info);
 	if(ret) {
-		printk(KERN_ERR "fail, unable to allcate frame buffer (%d)\n", pdev->id);
+		printk(KERN_ERR "Fail, unable to allcate frame buffer (%d)\n", pdev->id);
 		goto err_map;
 	}
 	nxp_fb_init_display(info);
@@ -1253,9 +1265,18 @@ static int nxp_fb_probe(struct platform_device *pdev)
  	 * 	registered_fb[]
  	 * 	(drivers/video/fbmem.c)
  	 */
+	if (pdev->id != 0) {
+		for (i = 0; pdev->id > i; i++) {
+			if (!registered_fb[i]) {
+				printk("FB: Reserve dev/node [%d]\n", i);
+				registered_fb[i] = info;
+			}
+		}
+	}
+
 	ret = register_framebuffer(info);
 	if(ret < 0) {
-		printk(KERN_ERR "fail, unable to register frame buffer(%d)\n", pdev->id);
+		printk(KERN_ERR "Fail, unable to register frame buffer(%d)\n", pdev->id);
 		goto err_reg;
 	}
 

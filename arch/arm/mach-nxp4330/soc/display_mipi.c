@@ -46,13 +46,15 @@ static int  mipi_set_vsync(struct disp_process_dev *pdev, struct disp_vsync_info
 	return 0;
 }
 
-static void mipi_get_vsync(struct disp_process_dev *pdev, struct disp_vsync_info *psync)
+static int mipi_get_vsync(struct disp_process_dev *pdev, struct disp_vsync_info *psync)
 {
 	printk("%s: %s\n", __func__, dev_to_str(pdev->dev_id));
-	RET_ASSERT(pdev);
+	RET_ASSERT_VAL(pdev, -EINVAL);
 
 	if (psync)
 		memcpy(psync, &pdev->vsync, sizeof(*psync));
+
+	return 0;
 }
 
 static int  mipi_prepare(struct disp_process_dev *pdev)
@@ -305,26 +307,27 @@ static void mipi_initialize(void)
 
 static int mipi_probe(struct platform_device *pdev)
 {
-	struct nxp_mipi_plat_data *plat = pdev->dev.platform_data;
-	struct disp_vsync_info *psync;
-	struct disp_syncgen_param *psgen;
+	struct nxp_lcd_plat_data *plat = pdev->dev.platform_data;
 	struct disp_mipi_param *pmipi;
+	struct disp_vsync_info *psync;
+	struct disp_syncgen_par *sgpar;
 	int device = DISP_DEVICE_MIPI;
 	int input;
 
 	RET_ASSERT_VAL(plat, -EINVAL);
 	RET_ASSERT_VAL(plat->display_in == DISP_DEVICE_SYNCGEN0 ||
 				   plat->display_in == DISP_DEVICE_SYNCGEN1 ||
+				   plat->display_dev == DISP_DEVICE_MIPI ||
 				   plat->display_in == DISP_DEVICE_RESCONV, -EINVAL);
 	RET_ASSERT_VAL(plat->vsync, -EINVAL);
 
 	pmipi = kzalloc(sizeof(*pmipi), GFP_KERNEL);
 	RET_ASSERT_VAL(pmipi, -EINVAL);
 
-	if (plat->mipi_param)
-		memcpy(pmipi, plat->mipi_param, sizeof(*pmipi));
+	if (plat->dev_param)
+		memcpy(pmipi, plat->dev_param, sizeof(*pmipi));
 
-	psgen = plat->syncgen;
+	sgpar = plat->sync_gen;
 	psync = plat->vsync;
 	input = plat->display_in;
 
@@ -332,12 +335,12 @@ static int mipi_probe(struct platform_device *pdev)
 
 	nxp_soc_disp_register_proc_ops(device, &mipi_ops);
 	nxp_soc_disp_device_connect_to(device, input, psync);
-	nxp_soc_disp_device_set_param(device, pmipi);
+	nxp_soc_disp_device_set_dev_param(device, pmipi);
 
-	if (psgen &&
+	if (sgpar &&
 		(input == DISP_DEVICE_SYNCGEN0 ||
 		 input == DISP_DEVICE_SYNCGEN1))
-		nxp_soc_disp_device_set_param(input, psgen);
+		nxp_soc_disp_device_set_sync_param(input, sgpar);
 
 	printk("MIPI: [%d]=%s connect to [%d]=%s\n",
 		device, dev_to_str(device), input, dev_to_str(input));

@@ -131,32 +131,31 @@ void		 nxp_soc_disp_unregister_irq_callback(int module);
 
 /*
  * display device control: refer to display.h
- * device 0=resconv, 1=lcdif, 2=hdmi, 3=mipi, 4=lvds, 5=syncgen0, 6=syncgen1
+ * device 0=resconv, 1=lcd, 2=hdmi, 3=mipi, 4=lvds, 5=syncgen0, 6=syncgen1
  */
-void 		 nxp_soc_disp_register_proc_ops(int device, struct disp_process_ops *ops);
-int			 nxp_soc_disp_device_connect_to(int device, int to, struct disp_vsync_info *vsync);
-void	     nxp_soc_disp_device_disconnect(int device, int to);
+void 		 nxp_soc_disp_register_proc_ops(enum disp_dev_type device, struct disp_process_ops *ops);
+int			 nxp_soc_disp_device_connect_to(enum disp_dev_type device, enum disp_dev_type to, struct disp_vsync_info *vsync);
+void	     nxp_soc_disp_device_disconnect(enum disp_dev_type device, enum disp_dev_type to);
 
-int			 nxp_soc_disp_device_set_param	(int device, void *param);
-int			 nxp_soc_disp_device_get_param	(int device, void *param);
-void		 nxp_soc_disp_device_get_vsync	(int device, struct disp_vsync_info *vsync);
+int			 nxp_soc_disp_device_set_sync_param	(enum disp_dev_type device, struct disp_syncgen_par *sync_par);
+int			 nxp_soc_disp_device_get_sync_param	(enum disp_dev_type device, struct disp_syncgen_par *sync_par);
+int			 nxp_soc_disp_device_set_vsync_info	(enum disp_dev_type device, struct disp_vsync_info *vsync);
+int			 nxp_soc_disp_device_get_vsync_info	(enum disp_dev_type device, struct disp_vsync_info *vsync);
 
-int 		 nxp_soc_disp_device_enable		(int device, int enable);
+int			 nxp_soc_disp_device_set_dev_param  (enum disp_dev_type device, void *param);
+
+int 		 nxp_soc_disp_device_enable		(enum disp_dev_type device, int enable);
+int 		 nxp_soc_disp_device_stat_enable(enum disp_dev_type device);
+
+int 		 nxp_soc_disp_device_suspend	(enum disp_dev_type device);
+void 		 nxp_soc_disp_device_resume 	(enum disp_dev_type device);
+
 int 		 nxp_soc_disp_device_enable_all	(int module, int enable);
-int 		 nxp_soc_disp_device_stat_enable(int device);
-void 		 nxp_soc_disp_device_reset_top(void);
-
-int 		 nxp_soc_disp_device_suspend	(int device);
-void 		 nxp_soc_disp_device_resume 	(int device);
 int 		 nxp_soc_disp_device_suspend_all(int module);
 void 		 nxp_soc_disp_device_resume_all	(int module);
+void 		 nxp_soc_disp_device_reset_top	(void);
 
 void 		 nxp_soc_disp_register_lcd_ops(int module, struct lcd_operation *pops);
-
-/* hdmi */
-void        nxp_soc_disp_hdmi_initialize(void);
-int         nxp_soc_disp_hdmi_enable(int enable);
-int         nxp_soc_disp_hdmi_set_preset(int preset);
 
 /*
  *

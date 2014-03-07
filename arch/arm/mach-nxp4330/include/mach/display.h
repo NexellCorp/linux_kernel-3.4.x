@@ -23,6 +23,31 @@
 #ifndef __DISPLAY_H__
 #define __DISPLAY_H__
 
+enum disp_dev_type {
+	DISP_DEVICE_RESCONV		= 0,
+	DISP_DEVICE_LCD			= 1,
+	DISP_DEVICE_HDMI  		= 2,
+	DISP_DEVICE_MIPI  		= 3,
+	DISP_DEVICE_LVDS  		= 4,
+	DISP_DEVICE_SYNCGEN0	= 5,
+	DISP_DEVICE_SYNCGEN1	= 6,
+	DISP_DEVICE_END			,
+};
+
+enum {
+	DISP_CLOCK_RESCONV		= 0,
+	DISP_CLOCK_LCD			= 1,
+	DISP_CLOCK_MIPI  		= 2,
+	DISP_CLOCK_LVDS  		= 3,
+	DISP_CLOCK_HDMI  		= 4,
+	DISP_CLOCK_END			,
+};
+
+#define DISPLAY_SYNCGEN_NUM		2	/* primary, secondary */
+
+/*
+ * video sync info
+ */
 struct disp_vsync_info {
 	int	interlace;
 	int	h_active_len;
@@ -44,36 +69,52 @@ struct disp_vsync_info {
 	int clk_div_lv1;
 };
 
-enum {
-	DISP_DEVICE_RESCONV		= 0,
-	DISP_DEVICE_LCDIF		= 1,
-	DISP_DEVICE_HDMI  		= 2,
-	DISP_DEVICE_MIPI  		= 3,
-	DISP_DEVICE_LVDS  		= 4,
-	DISP_DEVICE_SYNCGEN0	= 5,
-	DISP_DEVICE_SYNCGEN1	= 6,
-	DISP_DEVICE_END			,
-};
+/*
+ * syncgen control (DPC)
+ */
+#define	DISP_SYNCGEN_DELAY_RGB_PVD		(1<<0)
+#define	DISP_SYNCGEN_DELAY_HSYNC_CP1	(1<<1)
+#define	DISP_SYNCGEN_DELAY_VSYNC_FRAM	(1<<2)
+#define	DISP_SYNCGEN_DELAY_DE_CP		(1<<3)
 
-enum {
-	DISP_CLOCK_RESCONV		= 0,
-	DISP_CLOCK_LCDIF		= 1,
-	DISP_CLOCK_MIPI  		= 2,
-	DISP_CLOCK_LVDS  		= 3,
-	DISP_CLOCK_HDMI  		= 4,
-	DISP_CLOCK_END			,
+struct disp_syncgen_par {
+	/* multilayer format */
+	int 		 interlace;
+	/* syncgen format */
+	unsigned int out_format;
+	int			 invert_field;		/* 0= Normal Field(Low is odd field), 1: Invert Field(low is even field) */
+	int			 swap_RB;
+	unsigned int yc_order;			/* for CCIR output */
+	/* exten sync delay  */
+	int			delay_mask;			/* if not 0, set defalut delays (rgb_pvd, hsync_cp1, vsync_fram, de_cp2) */
+	int 		d_rgb_pvd;			/* the delay value for RGB/PVD signal   , 0 ~ 16, default  0 */
+	int			d_hsync_cp1;		/* the delay value for HSYNC/CP1 signal , 0 ~ 63, default 12 */
+	int			d_vsync_fram;		/* the delay value for VSYNC/FRAM signal, 0 ~ 63, default 12 */
+	int			d_de_cp2;			/* the delay value for DE/CP2 signal    , 0 ~ 63, default 12 */
+	/* exten sync delay  */
+	int			vs_start_offset;	/* start veritcal sync offset, defatult 0 */
+	int			vs_end_offset;		/* end veritcla sync offset  , defatult 0 */
+	int			ev_start_offset;	/* start even veritcal sync offset, defatult 0 */
+	int			ev_end_offset;		/* end even veritcal sync offset  , defatult 0 */
+	/* pad clock seletor */
+	int			vclk_select;		/* 0=vclk0, 1=vclk2 */
+	int			clk_inv_lv0;		/* OUTCLKINVn */
+	int			clk_delay_lv0;		/* OUTCLKDELAYn */
+	int			clk_inv_lv1;		/* OUTCLKINVn */
+	int			clk_delay_lv1;		/* OUTCLKDELAYn */
+	int			clk_sel_div1;		/* 0=clk1_inv, 1=clk1_div_2_ns */
 };
-
-#define DISPLAY_SYNCGEN_NUM		2	/* primary, secondary */
 
 struct disp_process_dev;
 struct disp_process_ops {
 	int	 (*set_vsync)	(struct disp_process_dev *dev, struct disp_vsync_info *vsync);
-	void (*get_vsync)	(struct disp_process_dev *dev, struct disp_vsync_info *vsync);
-	int	 (*enable) 	 	(struct disp_process_dev *dev, int enable);
+	int  (*get_vsync)	(struct disp_process_dev *dev, struct disp_vsync_info *vsync);
+	int	 (*prepare)  	(struct disp_process_dev *dev);				/* last  -> first */
+	int	 (*enable) 	 	(struct disp_process_dev *dev, int enable);	/* enable: first -> last, disable: last  -> first  */
 	int  (*stat_enable)	(struct disp_process_dev *dev);
-	int	 (*suspend)	 	(struct disp_process_dev *dev);
-	void (*resume)	 	(struct disp_process_dev *dev);
+	int	 (*suspend)	 	(struct disp_process_dev *dev);				/* last  -> first */
+	void (*pre_resume)	(struct disp_process_dev *dev);				/* last  -> first */
+	void (*resume)	 	(struct disp_process_dev *dev);				/* first -> last  */
 	int	 (*capability)	(struct disp_process_dev *dev, struct disp_vsync_info *vsync);
 	struct disp_process_dev *dev;
 };
@@ -87,12 +128,14 @@ struct disp_process_dev {
 	const char *name;
 	int dev_id;
 	int	dev_in;
+	int	dev_out;
 	unsigned int save_addr;
 	unsigned int base_addr;
 	struct list_head list;
 	unsigned int status;
 	spinlock_t lock;
-	struct disp_vsync_info vsync;
+	struct disp_vsync_info	 vsync;
+	struct disp_syncgen_par	 sync_gen;
 	struct disp_process_ops *disp_ops;
 	void * dev_param;
 	void * dev_info;
@@ -118,7 +161,7 @@ struct disp_process_dev {
 }
 
 /* device string */
-extern const char *dev_to_str(int device);
+extern const char *dev_to_str(enum disp_dev_type device);
 
 /*
  * multilayer control (MLC)
@@ -202,43 +245,6 @@ struct disp_multily_dev {
 };
 
 /*
- * syncgen control (DPC)
- */
-#define	DISP_SYNCGEN_DELAY_RGB_PVD		(1<<0)
-#define	DISP_SYNCGEN_DELAY_HSYNC_CP1	(1<<1)
-#define	DISP_SYNCGEN_DELAY_VSYNC_FRAM	(1<<2)
-#define	DISP_SYNCGEN_DELAY_DE_CP		(1<<3)
-
-struct disp_syncgen_param {
-	/* multilayer format */
-	int 		 interlace;
-	/* syncgen format */
-	unsigned int out_format;
-	int 		 lcd_mpu_type;		/* set when lcd type is mpu */
-	int			 invert_field;		/* 0= Normal Field(Low is odd field), 1: Invert Field(low is even field) */
-	int			 swap_RB;
-	unsigned int yc_order;			/* for CCIR output */
-	/* exten sync delay  */
-	int			delay_mask;			/* if not 0, set defalut delays (rgb_pvd, hsync_cp1, vsync_fram, de_cp2) */
-	int 		d_rgb_pvd;			/* the delay value for RGB/PVD signal   , 0 ~ 16, default  0 */
-	int			d_hsync_cp1;		/* the delay value for HSYNC/CP1 signal , 0 ~ 63, default 12 */
-	int			d_vsync_fram;		/* the delay value for VSYNC/FRAM signal, 0 ~ 63, default 12 */
-	int			d_de_cp2;			/* the delay value for DE/CP2 signal    , 0 ~ 63, default 12 */
-	/* exten sync delay  */
-	int			vs_start_offset;	/* start veritcal sync offset, defatult 0 */
-	int			vs_end_offset;		/* end veritcla sync offset  , defatult 0 */
-	int			ev_start_offset;	/* start even veritcal sync offset, defatult 0 */
-	int			ev_end_offset;		/* end even veritcal sync offset  , defatult 0 */
-	/* pad clock seletor */
-	int			vclk_select;		/* 0=vclk0, 1=vclk2 */
-	int			clk_inv_lv0;		/* OUTCLKINVn */
-	int			clk_delay_lv0;		/* OUTCLKDELAYn */
-	int			clk_inv_lv1;		/* OUTCLKINVn */
-	int			clk_delay_lv1;		/* OUTCLKDELAYn */
-	int			clk_sel_div1;		/* 0=clk1_inv, 1=clk1_div_2_ns */
-};
-
-/*
  * LCD control
  */
 struct lcd_operation {
@@ -251,39 +257,6 @@ struct lcd_operation {
 	int	 (*backlight_suspend)(int module, void *data);
 	int	 (*backlight_resume)(int module, void *data);
 	void *data;
-};
-
-/*
- * Resolution Converter
- */
-struct disp_fs_filter {
-	int		h_f_on;
-	int		v_f_on;
-	unsigned int h_f_coe;	/* horizontal filter coefficient value */
-	unsigned int v_f_coe;	/* vertical   filter coefficient value */
-};
-
-struct disp_resconv_param {
-	/* clipping */
-	int	clip_left;
-	int	clip_right;
-	/* extend factor */
-	int hs_delay;
-	int sync2in_vs;
-	/* fine-scaler filter */
-	struct disp_fs_filter	filter;
-	/* device sync info */
-};
-
-/*
- * LCDIF
- */
-struct disp_lcd_param {
-	unsigned int lcd_format;
-	int 		 lcd_mpu_type;		/* set when lcd type is mpu */
-	int			 invert_field;		/* 0= Normal Field(Low is odd field), 1: Invert Field(low is even field) */
-	int			 swap_RB;
-	unsigned int yc_order;			/* for CCIR output */
 };
 
 /*
@@ -315,6 +288,22 @@ struct disp_lcd_param {
 #define	LVDSCTRL2_VSEL_POS		(14)
 #define	LVDSCTRL2_CK_POL_POS	(15)
 
+/*
+ * LCD private parameters
+ */
+
+// RGB LCD Param
+struct disp_lcd_param {
+	unsigned int lcd_format;
+	int 		 lcd_mpu_type;		/* set when lcd type is mpu */
+	int			 invert_field;		/* 0= Normal Field(Low is odd field), 1: Invert Field(low is even field) */
+	int			 swap_RB;
+	unsigned int yc_order;			/* for CCIR output */
+	int	(*lcd_init)	(int width, int height, void *private_data);
+	int	(*lcd_exit)	(int width, int height, void *private_data);
+};
+
+// LVDS
 struct disp_lvds_param {
 	unsigned int lcd_format;		/* 0:VESA, 1:JEIDA, 2: Location Setting */
 	int			 inv_hsync;			/* hsync polarity invert for VESA, JEIDA */
@@ -328,17 +317,44 @@ struct disp_lvds_param {
 	unsigned int loc_pol[2];		/* when lcd format is "Location Setting", 0 ~ 34 */
 };
 
-/*
- * MIPI
- */
+// MIPI
 struct disp_mipi_param {
-	unsigned int pllpms;	/* Use LN28LPP_MipiDphyCore1p5Gbps_Supplement. */
-	unsigned int bandctl;	/* [3:0] Use LN28LPP_MipiDphyCore1p5Gbps_Supplement. */
+	unsigned int pllpms;			/* Use LN28LPP_MipiDphyCore1p5Gbps_Supplement. */
+	unsigned int bandctl;			/* [3:0] Use LN28LPP_MipiDphyCore1p5Gbps_Supplement. */
 	unsigned int pllctl;
-	unsigned int phyctl;	/* Refer to 10.2.3 M_PLLCTL of MIPI_D_PHY_USER_GUIDE.pdf or NX_MIPI_PHY_B_DPHYCTL enum or LN28LPP_MipiDphyCore1p5Gbps_Supplement. */
+	unsigned int phyctl;			/* Refer to 10.2.3 M_PLLCTL of MIPI_D_PHY_USER_GUIDE.pdf or NX_MIPI_PHY_B_DPHYCTL enum or LN28LPP_MipiDphyCore1p5Gbps_Supplement. */
 	int	(*lcd_init)	(int width, int height, void *private_data);
 	int	(*lcd_exit)	(int width, int height, void *private_data);
 	void *private_data;
+};
+
+// HDMI
+struct disp_hdmi_param {
+    int preset;         	/* 0 = 1280 * 720p, 1=1920 * 1080p */
+};
+
+// Resolution convertor
+struct disp_resc_param {
+	/* clipping */
+	int	clip_left;
+	int	clip_right;
+	/* extend factor */
+	int hs_delay;
+	int sync2in_vs;
+	/* fine-scaler filter */
+	int	h_f_on;
+	int	v_f_on;
+	unsigned int h_f_coe;	/* horizontal filter coefficient value */
+	unsigned int v_f_coe;	/* vertical   filter coefficient value */
+};
+
+// display device params */
+union disp_dev_param {
+	struct disp_lcd_param 	lcd;
+	struct disp_lvds_param 	lvds;
+	struct disp_mipi_param 	mipi;
+	struct disp_hdmi_param 	hdmi;
+	struct disp_resc_param	resc;
 };
 
 #endif /* __DISPLAY_H__ */

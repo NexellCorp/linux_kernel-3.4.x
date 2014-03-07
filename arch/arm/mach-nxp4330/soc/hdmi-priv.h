@@ -95,83 +95,83 @@ struct hdmi_infoframe {
     u32 len;
 };
 
-extern void __iomem* hdmi_priv_io_base;
+extern void __iomem* soc_hdmi_priv_io_base;
 
-static inline 
+static inline
 void hdmi_set_base(void __iomem* base)
 {
-    hdmi_priv_io_base = base;
+    soc_hdmi_priv_io_base = base;
 }
 
 static inline
 void hdmi_write(u32 reg, u32 val)
 {
-    writel(val, hdmi_priv_io_base + reg);
+    writel(val, soc_hdmi_priv_io_base + reg);
 }
 
 static inline
 void hdmi_write_mask(u32 reg, u32 val, u32 mask)
 {
-    u32 old = readl(hdmi_priv_io_base + reg);
+    u32 old = readl(soc_hdmi_priv_io_base + reg);
     val = (val & mask) | (old & ~mask);
-    writel(val, hdmi_priv_io_base + reg);
+    writel(val, soc_hdmi_priv_io_base + reg);
 }
 
 static inline
 void hdmi_writeb(u32 reg, u8 val)
 {
-    writeb(val, hdmi_priv_io_base + reg);
+    writeb(val, soc_hdmi_priv_io_base + reg);
 }
 
 static inline
 void hdmi_write_bytes(u32 reg, u8 *buf, int bytes)
 {
     int i;
-    for (i = 0; i < bytes; ++i) 
-        writeb(buf[i], hdmi_priv_io_base + reg + i * 4);
+    for (i = 0; i < bytes; ++i)
+        writeb(buf[i], soc_hdmi_priv_io_base + reg + i * 4);
 }
 
 static inline
 u32 hdmi_read(u32 reg)
 {
-    return readl(hdmi_priv_io_base + reg);
+    return readl(soc_hdmi_priv_io_base + reg);
 }
 
 static inline
 u8 hdmi_readb(u32 reg)
 {
-    return readb(hdmi_priv_io_base + reg);
+    return readb(soc_hdmi_priv_io_base + reg);
 }
 
 static inline
 void hdmi_read_bytes(u32 reg, u8 *buf, int bytes)
 {
     int i;
-    for (i = 0; i < bytes; ++i) 
-        buf[i] = readb(hdmi_priv_io_base + reg + i * 4);
+    for (i = 0; i < bytes; ++i)
+        buf[i] = readb(soc_hdmi_priv_io_base + reg + i * 4);
 }
 
-void hdmi_set_dvi_mode(bool is_dvi);
-void hdmi_conf_apply(int color_range, const struct hdmi_preset_conf *conf);
-bool hdmi_is_phy_ready(void);
-void hdmi_enable(bool on);
-void hdmi_hpd_enable(bool on);
-void hdmi_tg_enable(bool on, bool is_interlacee);
-void hdmi_stop_vsi(void);
-u8   hdmi_chksum(u32 start, u8 len, u32 hdr_sum);
-void hdmi_set_acr(int sample_rate, bool is_dvi);
-void hdmi_audio_spdif_init(int audio_codec, int bps);
-void hdmi_audio_i2s_init(int sample_rate, int bps);
-void hdmi_audio_enable(bool on);
-void hdmi_bluescreen_enable(bool on);
-void hdmi_mute(bool on);
-int  hdmi_hpd_status(void);
-u8   hdmi_get_int_mask(void);
-void hdmi_set_int_mask(u8 mask, bool on);
-void hdmi_sw_hpd_enable(bool on);
-void hdmi_sw_hpd_plug(bool on);
-void hdmi_phy_sw_reset(void);
-void hdmi_sw_reset(void);
-void hdmi_dump_regs(const char *prefix);
+void soc_hdmi_set_dvi_mode(bool is_dvi);
+void soc_hdmi_conf_apply(int color_range, const struct hdmi_preset_conf *conf);
+bool soc_hdmi_is_phy_ready(void);
+void soc_hdmi_enable(bool on);
+void soc_hdmi_hpd_enable(bool on);
+void soc_hdmi_tg_enable(bool on, bool is_interlacee);
+void soc_hdmi_stop_vsi(void);
+u8   soc_hdmi_chksum(u32 start, u8 len, u32 hdr_sum);
+void soc_hdmi_set_acr(int sample_rate, bool is_dvi);
+void soc_hdmi_audio_spdif_init(int audio_codec, int bps);
+void soc_hdmi_audio_i2s_init(int sample_rate, int bps);
+void soc_hdmi_audio_enable(bool on);
+void soc_hdmi_bluescreen_enable(bool on);
+void soc_hdmi_mute(bool on);
+int  soc_hdmi_hpd_status(void);
+u8   soc_hdmi_get_int_mask(void);
+void soc_hdmi_set_int_mask(u8 mask, bool on);
+void soc_hdmi_sw_hpd_enable(bool on);
+void soc_hdmi_sw_hpd_plug(bool on);
+void soc_hdmi_phy_sw_reset(void);
+void soc_hdmi_sw_reset(void);
+void soc_hdmi_dump_regs(const char *prefix);
 
 #endif

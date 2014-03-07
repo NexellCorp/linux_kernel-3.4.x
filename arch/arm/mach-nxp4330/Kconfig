@@ -81,40 +81,25 @@ config HAVE_PWM_CH3
 	default n
 
 config NEXELL_SOC_PWM
-	bool "Support PWM soc"
+	bool "Support PWM SoC"
 	default y if HAVE_PWM
 
-config NEXELL_SOC_DISP
-	bool "Support Display soc"
+config NEXELL_DISPLAY
+	bool "Support Display SoC"
 	default n
 
-config NEXELL_SOC_DISP_PRI
+config NEXELL_DISPLAY_1ST
 	bool "Primary   display output (MLC0/DPC0)"
-	depends on NEXELL_SOC_DISP
+	depends on NEXELL_DISPLAY
 
-config NEXELL_SOC_DISP_SEC
+config NEXELL_DISPLAY_2ST
 	bool "Secondary display output (MLC1/DPC1)"
-	depends on NEXELL_SOC_DISP
+	depends on NEXELL_DISPLAY
 
-config NEXELL_SOC_DISP_LCDIF
-	bool "LCD Interface"
-	depends on NEXELL_SOC_DISP
-
-config NEXELL_SOC_DISP_LVDS
-	bool "LVDS"
-	depends on NEXELL_SOC_DISP
-
-config NEXELL_SOC_DISP_HDMI
-	bool "HDMI"
-	depends on NEXELL_SOC_DISP
-
-config NEXELL_SOC_DISP_MIPI
-	bool "MiPi"
-	depends on NEXELL_SOC_DISP
-
-config NEXELL_SOC_DISP_RESCONV
+config NEXELL_DISPLAY_RESCONV
 	bool "Resolution Converter"
-	depends on NEXELL_SOC_DISP
+	depends on NEXELL_DISPLAY
+	default n
 
 source "kernel/Kconfig.hz"
 source "arch/arm/plat-nxp4330/Kconfig"

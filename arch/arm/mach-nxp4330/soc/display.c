@@ -154,6 +154,7 @@ struct disp_control_info {
 	wait_queue_head_t 	wait_queue;
 	ktime_t 	      	time_stamp;
 	unsigned int	  	status;
+	struct list_head 	link;
 	struct lcd_operation    *lcd_ops;		/* LCD and Backlight */
 	struct disp_multily_dev  multilayer;
 	struct disp_process_dev	*proc_dev;
@@ -161,6 +162,7 @@ struct disp_control_info {
 	void  *callback_data;
 };
 
+static LIST_HEAD(disp_resconv_link);
 static struct disp_control_info	*display_info[NUMBER_OF_DPC_MODULE] = { NULL, };
 static struct NX_MLC_RegisterSet save_multily[NUMBER_OF_DPC_MODULE];
 static struct NX_DPC_RegisterSet save_syncgen[NUMBER_OF_DPC_MODULE];
@@ -168,12 +170,12 @@ static struct NX_DPC_RegisterSet save_syncgen[NUMBER_OF_DPC_MODULE];
 /*
  * display device array
  */
-#define	LIST_INIT(x) 	{ .next = NULL, .prev = NULL }
+#define	LIST_INIT(x) 	LIST_HEAD_INIT(device_dev[x].list)
 #define	LOCK_INIT(x) 	(__SPIN_LOCK_UNLOCKED(device_dev[x].lock))
 
 static struct disp_process_dev device_dev[] = {
 	[0] = { .dev_id = DISP_DEVICE_RESCONV , .name = "RESCONV" , .list = LIST_INIT(0), .lock = LOCK_INIT(0)},
-	[1] = { .dev_id = DISP_DEVICE_LCDIF   ,	.name = "LCD_IF"  , .list = LIST_INIT(1), .lock = LOCK_INIT(1)},
+	[1] = { .dev_id = DISP_DEVICE_LCD     ,	.name = "LCD" 	  , .list = LIST_INIT(1), .lock = LOCK_INIT(1)},
 	[2] = { .dev_id = DISP_DEVICE_HDMI    ,	.name = "HDMI"    , .list = LIST_INIT(2), .lock = LOCK_INIT(2)},
 	[3] = { .dev_id = DISP_DEVICE_MIPI    ,	.name = "MiPi"    , .list = LIST_INIT(3), .lock = LOCK_INIT(3)},
 	[4] = { .dev_id = DISP_DEVICE_LVDS    ,	.name = "LVDS"    , .list = LIST_INIT(4), .lock = LOCK_INIT(4)},
@@ -184,12 +186,12 @@ static struct disp_process_dev device_dev[] = {
 
 static struct kobject *kobj_syncgen = NULL;
 
-static inline void *get_display_ptr(int device)
+static inline void *get_display_ptr(enum disp_dev_type device)
 {
 	return (&device_dev[device]);
 }
 
-const char * dev_to_str(int device)
+const char * dev_to_str(enum disp_dev_type device)
 {
 	struct disp_process_dev *pdev = get_display_ptr(device);
 	return pdev->name;
@@ -232,7 +234,7 @@ static inline void *get_device_to_info(struct disp_process_dev *pdev)
 	do { mdelay(1);	} while (w-- >0 && !NX_DPC_GetInterruptPendingAll(m))
 
 static inline void set_display_kobj(struct kobject * kobj) { kobj_syncgen = kobj; }
-static inline struct kobject *get_display_kobj(int device) { return kobj_syncgen; }
+static inline struct kobject *get_display_kobj(enum disp_dev_type device) { return kobj_syncgen; }
 
 static inline void disp_topctl_reset(void)
 {
@@ -279,71 +281,35 @@ static inline void video_cbr_color(int module, int cba, int cbb, int cra, int cr
 	NX_MLC_SetDirtyFlag(module, MLC_LAYER_VIDEO);
 }
 
-static inline void set_syncgen_param(struct disp_syncgen_param *pdst, struct disp_syncgen_param *psrc)
+#define	SET_PARAM(s, d, member)	\
+	if(s->member && s->member != d->member)	\
+		d->member = s->member;
+
+static inline void set_syncgen_param(struct disp_syncgen_par *src, struct disp_syncgen_par *dst)
 {
-	if (pdst->out_format)
-		pdst->out_format = psrc->out_format;
+	if (!src || !dst)
+		return;
 
-	if (pdst->yc_order)
-		pdst->yc_order = psrc->yc_order;
-
-	if (pdst->interlace != psrc->interlace)
-		pdst->interlace = psrc->interlace;
-
-	if (pdst->lcd_mpu_type != psrc->lcd_mpu_type)
-		pdst->lcd_mpu_type = psrc->lcd_mpu_type;
-
-	if (pdst->invert_field != psrc->invert_field)
-		pdst->invert_field = psrc->invert_field;
-
-	if (pdst->swap_RB != psrc->swap_RB)
-		pdst->swap_RB = psrc->swap_RB;
-
-	if (pdst->delay_mask != psrc->delay_mask)
-		pdst->delay_mask = psrc->delay_mask;
-
-	if (pdst->d_rgb_pvd != psrc->d_rgb_pvd)
-		pdst->d_rgb_pvd = psrc->d_rgb_pvd;
-
-	if (pdst->d_hsync_cp1 != psrc->d_hsync_cp1)
-		pdst->d_hsync_cp1 = psrc->d_hsync_cp1;
-
-	if (pdst->d_vsync_fram != psrc->d_vsync_fram)
-		pdst->d_vsync_fram = psrc->d_vsync_fram;
-
-	if (pdst->d_de_cp2 != psrc->d_de_cp2)
-		pdst->d_de_cp2 = psrc->d_de_cp2;
-
-	if (pdst->vs_start_offset != psrc->vs_start_offset)
-		pdst->vs_start_offset = psrc->vs_start_offset;
-
-	if (pdst->vs_end_offset != psrc->vs_end_offset)
-		pdst->vs_end_offset = psrc->vs_end_offset;
-
-	if (pdst->ev_start_offset != psrc->ev_start_offset)
-		pdst->ev_start_offset = psrc->ev_start_offset;
-
-	if (pdst->ev_end_offset != psrc->ev_end_offset)
-		pdst->ev_end_offset = psrc->ev_end_offset;
-
-	if (pdst->vclk_select != psrc->vclk_select)
-		pdst->vclk_select = psrc->vclk_select;
-
-	if (pdst->clk_inv_lv0 != psrc->clk_inv_lv0)
-		pdst->clk_inv_lv0 = psrc->clk_inv_lv0;
-
-	if (pdst->clk_delay_lv0 != psrc->clk_delay_lv0)
-		pdst->clk_delay_lv0 = psrc->clk_delay_lv0;
-
-	if (pdst->clk_inv_lv1 != psrc->clk_inv_lv1)
-		pdst->clk_inv_lv1 = psrc->clk_inv_lv1;
-
-	if (pdst->clk_delay_lv1 != psrc->clk_delay_lv1)
-		pdst->clk_delay_lv1 = psrc->clk_delay_lv1;
-
-	if (pdst->clk_sel_div1 != psrc->clk_sel_div1)
-		pdst->clk_sel_div1 = psrc->clk_sel_div1;
-
+	SET_PARAM(src, dst, interlace);
+	SET_PARAM(src, dst, out_format);
+	SET_PARAM(src, dst, invert_field);
+	SET_PARAM(src, dst, swap_RB);
+	SET_PARAM(src, dst, yc_order);
+	SET_PARAM(src, dst, delay_mask);
+	SET_PARAM(src, dst, d_rgb_pvd);
+	SET_PARAM(src, dst, d_hsync_cp1);
+	SET_PARAM(src, dst, d_vsync_fram);
+	SET_PARAM(src, dst, d_de_cp2);
+	SET_PARAM(src, dst, vs_start_offset);
+	SET_PARAM(src, dst, vs_end_offset);
+	SET_PARAM(src, dst, ev_start_offset);
+	SET_PARAM(src, dst, ev_end_offset);
+	SET_PARAM(src, dst, vclk_select);
+	SET_PARAM(src, dst, clk_inv_lv0);
+	SET_PARAM(src, dst, clk_delay_lv0);
+	SET_PARAM(src, dst, clk_inv_lv1);
+	SET_PARAM(src, dst, clk_delay_lv1);
+    SET_PARAM(src, dst, clk_sel_div1);
 }
 
 static int display_framerate_jiffies(int module, struct disp_vsync_info *psync)
@@ -393,7 +359,7 @@ static int disp_multily_enable(struct disp_control_info *info, int enable)
 		pmly->x_resol = psync->h_active_len;
 		pmly->y_resol = psync->v_active_len;
 		pmly->interlace = psync->interlace;
-		pmly->mem_lock_len = 16;	/* fix mem lock size, par->mem_lock_size */
+		pmly->mem_lock_len = 16;	/* fix mem lock size, psgen->mem_lock_size */
 
 		xresol = pmly->x_resol;
 		yresol = pmly->y_resol;
@@ -497,7 +463,7 @@ static irqreturn_t	disp_syncgen_irqhandler(int irq, void *desc)
 	}
 	NX_DPC_ClearInterruptPendingAll(module);
 
-	if (! version)
+	if (!version)
 		NX_MLC_SetTopDirtyFlag(module);
 
 	if (info->callback) {
@@ -526,8 +492,9 @@ static void disp_syncgen_initialize(void)
 	int i = 0;
 
 	printk("Disply Reset Status : %s\n", power?"On":"Off");
+
 	/* reset */
-	if (! power) {
+	if (!power) {
 		disp_topctl_reset();
 		disp_syncgen_reset();
 		printk("Disply Reset Top/Syncgen ...\n");
@@ -570,64 +537,70 @@ static int  disp_syncgen_set_vsync(struct disp_process_dev *pdev, struct disp_vs
 	return 0;
 }
 
-static void disp_syncgen_get_vsync(struct disp_process_dev *pdev, struct disp_vsync_info *psync)
+static int disp_syncgen_get_vsync(struct disp_process_dev *pdev, struct disp_vsync_info *psync)
 {
+	struct disp_control_info *info = get_device_to_info(pdev);
+	struct list_head *head = &info->link;
+
+	if (list_empty(head)) {
+		printk("display:%9s not connected display out ...\n", dev_to_str(pdev->dev_id));
+		return -1;
+	}
+
 	if (psync)
 		memcpy(psync, &pdev->vsync, sizeof(struct disp_vsync_info));
+
+	return 0;
 }
 
 static int  disp_syncgen_prepare(struct disp_control_info *info)
 {
 	struct disp_process_dev *pdev = info->proc_dev;
-	struct disp_syncgen_param *par = pdev->dev_param;
+	struct disp_syncgen_par *psgen = &pdev->sync_gen;
 	struct disp_vsync_info *psync = &pdev->vsync;
 
 	int module = info->module;
-	unsigned int out_format = par->out_format;
-	int 	   invert_field = par->invert_field;
-	int 		 swap_RB    = par->swap_RB;
-	int 	   lcd_mpu_type = par->lcd_mpu_type;
-	unsigned int yc_order   = par->yc_order;
-	unsigned int delay_mask = par->delay_mask;
+	unsigned int out_format = psgen->out_format;
+	int 	   invert_field = psgen->invert_field;
+	int 		 swap_RB    = psgen->swap_RB;
+	unsigned int yc_order   = psgen->yc_order;
+	unsigned int delay_mask = psgen->delay_mask;
 
 	int rgb_pvd = 0, hsync_cp1 = 7, vsync_fram = 7, de_cp2 = 7;
 	int v_vso = 1, v_veo = 1, e_vso = 1, e_veo = 1;
-	int interlace = par->interlace;
+	int interlace = psgen->interlace;
 
 	int clk_src_lv0 = psync->clk_src_lv0;
 	int clk_div_lv0 = psync->clk_div_lv0;
 	int clk_src_lv1 = psync->clk_src_lv1;
 	int clk_div_lv1 = psync->clk_div_lv1;
-	int clk_dly_lv0 = par->clk_delay_lv0;
-	int clk_dly_lv1 = par->clk_delay_lv1;
-	int vclk_select = par->vclk_select;
-	int vclk_invert = par->clk_inv_lv0 | par->clk_inv_lv1;
+	int clk_dly_lv0 = psgen->clk_delay_lv0;
+	int clk_dly_lv1 = psgen->clk_delay_lv1;
+	int vclk_select = psgen->vclk_select;
+	int vclk_invert = psgen->clk_inv_lv0 | psgen->clk_inv_lv1;
 
 	CBOOL RGBMode = CFALSE;
 	CBOOL EmbSync = (out_format == DPC_FORMAT_CCIR656 ? CTRUE : CFALSE);
 	NX_DPC_DITHER RDither, GDither, BDither;
 
-	/* LCD MPU not support */
-	RET_ASSERT_VAL(!lcd_mpu_type, -EINVAL);
-
 	/* set delay mask */
 	if (delay_mask & DISP_SYNCGEN_DELAY_RGB_PVD)
-		rgb_pvd = par->d_rgb_pvd;
+		rgb_pvd = psgen->d_rgb_pvd;
 	if (delay_mask & DISP_SYNCGEN_DELAY_HSYNC_CP1)
-		hsync_cp1 = par->d_hsync_cp1;
+		hsync_cp1 = psgen->d_hsync_cp1;
 	if (delay_mask & DISP_SYNCGEN_DELAY_VSYNC_FRAM)
-		vsync_fram = par->d_vsync_fram;
+		vsync_fram = psgen->d_vsync_fram;
 	if (delay_mask & DISP_SYNCGEN_DELAY_DE_CP)
-		de_cp2 = par->d_de_cp2;
+		de_cp2 = psgen->d_de_cp2;
 
-	if (par->vs_start_offset != 0 ||
-		par->vs_end_offset 	 != 0 ||
-		par->ev_start_offset != 0 ||
-		par->ev_end_offset   != 0) {
-		v_vso = par->vs_start_offset;
-		v_veo = par->vs_end_offset;
-		e_vso = par->ev_start_offset;
-		e_veo = par->ev_end_offset;
+	if (psgen->vs_start_offset != 0 ||
+		psgen->vs_end_offset 	 != 0 ||
+		psgen->ev_start_offset != 0 ||
+		psgen->ev_end_offset   != 0) {
+		v_vso = psgen->vs_start_offset;
+		v_veo = psgen->vs_end_offset;
+		e_vso = psgen->ev_start_offset;
+		e_veo = psgen->ev_end_offset;
 	}
 
     if (((U32)NX_DPC_FORMAT_RGB555   == out_format) ||
@@ -679,8 +652,8 @@ static int  disp_syncgen_prepare(struct disp_control_info *info)
 		__func__, module, psync->v_active_len, psync->v_front_porch,
 		psync->v_back_porch, psync->v_sync_width);
 	DBGOUT("%s: display.%d clk 0[s=%d, d=%3d], 1[s=%d, d=%3d], vclksel=%d, inv[%d:%d]\n",
-		__func__, module, clk_src_lv0, clk_div_lv0,  clk_src_lv1, clk_div_lv1, vclk_select,
-		par->clk_inv_lv0, par->clk_inv_lv1);
+		__func__, module, clk_src_lv0, clk_div_lv0, clk_src_lv1, clk_div_lv1, vclk_select,
+		psgen->clk_inv_lv0, psgen->clk_inv_lv1);
 	DBGOUT("%s: display.%d v_vso=%d, v_veo=%d, e_vso=%d, e_veo=%d\n",
 		__func__, module, v_vso, v_veo, e_vso, e_veo);
 	DBGOUT("%s: display.%d delay RGB=%d, HS=%d, VS=%d, DE=%d\n",
@@ -695,10 +668,7 @@ static int  disp_syncgen_enable(struct disp_process_dev *pdev, int enable)
 	int wait = info->wait_time * 10;
 	int module = info->module;
 
-    // psw0523 debugging
 	DBGOUT("%s : display.%d, %s, wait=%d, status=0x%x\n",
-		__func__, module, enable?"ON":"OFF", wait, pdev->status);
-	printk("%s : display.%d, %s, wait=%d, status=0x%x\n",
 		__func__, module, enable?"ON":"OFF", wait, pdev->status);
 
 	if (!enable) {
@@ -722,9 +692,9 @@ static int  disp_syncgen_enable(struct disp_process_dev *pdev, int enable)
 			return -EINVAL;
 		}
 
+		disp_multily_enable(info, enable);
 		disp_syncgen_prepare(info);
 		disp_syncgen_irqenable(info->module, 1);
-		disp_multily_enable(info, enable);
 
 		NX_DPC_SetDPCEnable(module, CTRUE);				/* START: DPC */
 		NX_DPC_SetClockDivisorEnable(module, CTRUE);	/* START: CLKGEN */
@@ -737,8 +707,36 @@ static int  disp_syncgen_enable(struct disp_process_dev *pdev, int enable)
 
 static int  disp_syncgen_stat_enable(struct disp_process_dev *pdev)
 {
-	DBGOUT("%s : display.%d, status = 0x%x\n", __func__, module, pdev->status);
-	return pdev->status & PROC_STATUS_ENABLE ? 1 : 0;
+	struct disp_control_info *info = get_device_to_info(pdev);
+	struct disp_process_ops *ops;
+	struct list_head *pos, *head;
+	int ret = pdev->status & PROC_STATUS_ENABLE ? 1 : 0;
+
+	DBGOUT("%s %s -> ", __func__, dev_to_str(pdev->dev_id));
+
+	head = &info->link;
+	if (list_empty(head)) {
+		printk("display:%9s not connected display out ...\n", dev_to_str(pdev->dev_id));
+		return -1;
+	}
+
+	/* from last */
+	list_for_each_prev(pos, head) {
+		if (list_is_last(pos, head)) {
+			pdev = container_of(pos, struct disp_process_dev, list);
+			if (pdev) {
+				ops = pdev->disp_ops;
+				if (ops && ops->stat_enable)
+					ret = ops->stat_enable(pdev);
+			}
+			break;
+		}
+	}
+
+	DBGOUT("(%s status = %s)\n", dev_to_str(pdev->dev_id),
+		pdev->status & PROC_STATUS_ENABLE?"ON":"OFF");
+
+	return ret;
 }
 
 static int  disp_syncgen_suspend(struct disp_process_dev *pdev)
@@ -813,6 +811,89 @@ static void disp_syncgen_resume(struct disp_process_dev *pdev)
 	}
 }
 
+static inline int disp_ops_prepare_devs(struct list_head *head)
+{
+	struct disp_process_ops *ops;
+	struct disp_process_dev *pdev;
+	struct list_head *pos;
+	int ret = 0;
+
+	list_for_each_prev(pos, head) {
+		pdev = container_of(pos, struct disp_process_dev, list);
+		ops  = pdev->disp_ops;
+		DBGOUT("PRE: %s, ops=0x%p\n", pdev->name, ops);
+		if (ops && ops->prepare) {
+			ret = ops->prepare(ops->dev);
+			if (ret) {
+				printk(KERN_ERR "Fail, display prepare [%s]...\n", dev_to_str(pdev->dev_id));
+				return -EINVAL;
+			}
+		}
+	}
+	return 0;
+}
+
+static inline void disp_ops_enable_devs(struct list_head *head, int on)
+{
+	struct disp_process_ops *ops;
+	struct disp_process_dev *pdev;
+	struct list_head *pos;
+
+	list_for_each(pos, head) {
+		pdev = container_of(pos, struct disp_process_dev, list);
+		ops  = pdev->disp_ops;
+		DBGOUT("%s: %s, ops=0x%p\n", on?"ON ":"OFF", pdev->name, ops);
+		if (ops && ops->enable)
+			ops->enable(ops->dev, on);
+	}
+}
+
+static inline void disp_ops_pre_resume_devs(struct list_head *head)
+{
+	struct disp_process_ops *ops;
+	struct disp_process_dev *pdev;
+	struct list_head *pos;
+
+	list_for_each_prev(pos, head) {
+		pdev = container_of(pos, struct disp_process_dev, list);
+		ops  = pdev->disp_ops;
+		PM_DBGOUT("PRE RESUME: %s, ops=0x%p\n", pdev->name, ops);
+		if (ops && ops->pre_resume)
+			ops->pre_resume(ops->dev);
+	}
+}
+
+static inline int disp_ops_suspend_devs(struct list_head *head, int suspend)
+{
+	struct disp_process_ops *ops;
+	struct disp_process_dev *pdev;
+	struct list_head *pos;
+	int ret = 0;
+
+	if (suspend) { /* last  -> first */
+		list_for_each_prev(pos, head) {
+			pdev = container_of(pos, struct disp_process_dev, list);
+			ops  = pdev->disp_ops;
+			PM_DBGOUT("SUSPEND: %s, ops=0x%p\n", pdev->name, ops);
+			if (ops && ops->suspend) {
+				ret = ops->suspend(ops->dev);
+				if (ret)
+					return -EINVAL;
+			}
+		}
+	} else {
+		list_for_each(pos, head) {
+			pdev = container_of(pos, struct disp_process_dev, list);
+			ops  = pdev->disp_ops;
+			PM_DBGOUT("RESUME : %s, ops=0x%p\n", pdev->name, ops);
+			if (ops && ops->resume)
+				ops->resume(ops->dev);
+		}
+	}
+
+	return 0;
+}
+
 static struct disp_process_ops syncgen_ops[DISPLAY_SYNCGEN_NUM] = {
 	/* primary */
 	{
@@ -844,7 +925,7 @@ int nxp_soc_disp_rgb_set_fblayer(int module, int layer)
 	DISP_MULTILY_DEV(module, pmly);
 	RET_ASSERT_VAL(module > -1 && 2 > module, -EINVAL);
 	RET_ASSERT_VAL(layer > -1 && LAYER_RGB_NUM > layer, -EINVAL);
-	DBGOUT("%s: framebuffer layer = %d\n", __func__, layer);
+	DBGOUT("%s: framebuffer layer = %d.%d\n", __func__, module, layer);
 
 	pmly->fb_layer = layer;
 
@@ -896,8 +977,9 @@ int  nxp_soc_disp_rgb_set_format(int module, int layer, unsigned int format,
 	NX_MLC_SetFormatRGB(module, layer, (NX_MLC_RGBFMT)format);
 	NX_MLC_SetRGBLayerInvalidPosition(module, layer, 0, 0, 0, 0, 0, CFALSE);
 	NX_MLC_SetRGBLayerInvalidPosition(module, layer, 1, 0, 0, 0, 0, CFALSE);
+
    if (image_w && image_h)
-        NX_MLC_SetPosition(module, layer, 0, 0, image_w, image_h);
+        NX_MLC_SetPosition(module, layer, 0, 0, image_w-1, image_h-1);
 
 	return 0;
 }
@@ -1463,11 +1545,11 @@ int  nxp_soc_disp_layer_stat_enable(int module, int layer)
 /*
  *	Display Devices
  */
-int	nxp_soc_disp_device_connect_to(int device, int to, struct disp_vsync_info *psync)
+int	nxp_soc_disp_device_connect_to(enum disp_dev_type device, enum disp_dev_type to, struct disp_vsync_info *psync)
 {
-	struct disp_process_dev *pdev, *idev;
+	struct disp_process_dev *pdev, *sdev;
 	struct disp_process_ops *ops;
-	struct list_head *prev, *new;
+	struct list_head *head, *new;
 	int ret = 0;
 
 	RET_ASSERT_VAL(device != to, -EINVAL);
@@ -1476,50 +1558,52 @@ int	nxp_soc_disp_device_connect_to(int device, int to, struct disp_vsync_info *p
 				   to == DISP_DEVICE_RESCONV, -EINVAL);
 	DBGOUT("%s: %s, in[%s]\n", __func__, dev_to_str(device), dev_to_str(to));
 
-
+	sdev = get_display_ptr((int)to);
 	pdev = get_display_ptr((int)device);
-	idev = get_display_ptr((int)to);
-	pdev->dev_in = to;
+	sdev->dev_out = device;
+	pdev->dev_in  = to;
 
-	spin_lock(&idev->lock);
+	spin_lock(&sdev->lock);
 
-	/* source sync */
-	ops = idev->disp_ops;
-	if (ops && ops->set_vsync)
-		ret = ops->set_vsync(idev, psync);
+	if (psync) {
+		/* source sync */
+		ops = sdev->disp_ops;
+		if (ops && ops->set_vsync) {
+			ret = ops->set_vsync(sdev, psync);
+			if (0 > ret)
+				goto _exit;
+		}
 
-	if (0 > ret)
-		goto _exit;
-
-	/* device operation */
-	ops = pdev->disp_ops;
-	if (ops && ops->set_vsync)
-		ret = ops->set_vsync(pdev, psync);
-
-	if (0 > ret)
-		goto _exit;
-
-	/* copy sync for source device */
-	memcpy(&idev->vsync, psync, sizeof(*psync));
+		/* device operation */
+		ops = pdev->disp_ops;
+		if (ops && ops->set_vsync) {
+			ret = ops->set_vsync(pdev, psync);
+			if (0 > ret)
+				goto _exit;
+		}
+	}
 
 	/* list add */
-	prev = &idev->list, new = &pdev->list;
+	if (DISP_DEVICE_SYNCGEN0 == sdev->dev_id ||
+		DISP_DEVICE_SYNCGEN1 == sdev->dev_id) {
+		struct disp_control_info *info = get_device_to_info(sdev);
+		head = &info->link;
+	} else {
+		head = &disp_resconv_link;
+	}
 
-	for ( ; prev->next; prev = prev->next);
-
-	prev->next = new;
-	new->prev  = prev;
-	new->next  = NULL;
+	new	= &pdev->list;
+	list_add_tail(new, head);
 
 _exit:
-	spin_unlock(&idev->lock);
+	spin_unlock(&sdev->lock);
 	return ret;
 }
 
-void nxp_soc_disp_device_disconnect(int device, int to)
+void nxp_soc_disp_device_disconnect(enum disp_dev_type device, enum disp_dev_type to)
 {
-	struct disp_process_dev *pdev, *idev;
-	struct list_head *prev, *del, *next;
+	struct disp_process_dev *pdev, *sdev;
+	struct list_head *entry;
 
 	RET_ASSERT(device != to);
 	RET_ASSERT(DEVICE_SIZE > device);
@@ -1528,77 +1612,89 @@ void nxp_soc_disp_device_disconnect(int device, int to)
 	DBGOUT("%s: %s, in[%s]\n", __func__, dev_to_str(device), dev_to_str(to));
 
 	/* list delete */
+	sdev = get_display_ptr((int)to);
 	pdev = get_display_ptr((int)device);
-	idev = get_display_ptr((int)to);
-	del  = &pdev->list;
 
-	spin_lock(&idev->lock);
-	if (del->prev) {
-		prev = del->prev;
-		next = del->next;
-		prev->next = next;
-		if (next) next->prev = prev;
-		del->prev  = NULL;
-		del->next  = NULL;
-	}
-	spin_unlock(&idev->lock);
+	spin_lock(&sdev->lock);
+
+	/* list add */
+	entry = &pdev->list;
+	list_del(entry);
+
+	spin_unlock(&sdev->lock);
 }
 
-void nxp_soc_disp_device_get_vsync(int device, struct disp_vsync_info *psync)
+int nxp_soc_disp_device_set_vsync_info(enum disp_dev_type device, struct disp_vsync_info *psync)
 {
 	struct disp_process_ops *ops = NULL;
-	RET_ASSERT(DEVICE_SIZE > device);
+	RET_ASSERT_VAL(DEVICE_SIZE > device, -EINVAL);
+	DBGOUT("%s: %s\n", __func__, dev_to_str(device));
+
+	ops = get_display_ops(device);
+	if (ops && ops->set_vsync)
+		return ops->set_vsync(ops->dev, psync);
+
+	return -1;
+}
+
+int nxp_soc_disp_device_get_vsync_info(enum disp_dev_type device, struct disp_vsync_info *psync)
+{
+	struct disp_process_ops *ops = NULL;
+	RET_ASSERT_VAL(DEVICE_SIZE > device, -EINVAL);
 	DBGOUT("%s: %s\n", __func__, dev_to_str(device));
 
 	ops = get_display_ops(device);
 	if (ops && ops->get_vsync)
-		ops->get_vsync(ops->dev, psync);
+		return ops->get_vsync(ops->dev, psync);
+
+	return -1;
 }
 
-int	nxp_soc_disp_device_set_param(int device, void *param)
+int	nxp_soc_disp_device_set_sync_param(enum disp_dev_type device, struct disp_syncgen_par *sync_par)
 {
 	struct disp_process_dev *pdev = get_display_ptr(device);
-	struct disp_syncgen_param *pdst, *psrc;
+	struct disp_syncgen_par *pdst, *psrc;
+
+	RET_ASSERT_VAL(sync_par, -EINVAL);
+	RET_ASSERT_VAL(DEVICE_SIZE > device, -EINVAL);
+	DBGOUT("%s: %s\n", __func__, dev_to_str(device));
+
+	pdst = &pdev->sync_gen;
+	psrc = sync_par;
+	set_syncgen_param(psrc, pdst);
+
+	return 0;
+}
+
+int	nxp_soc_disp_device_get_sync_param(enum disp_dev_type device, struct disp_syncgen_par *sync_par)
+{
+	struct disp_process_dev *pdev = get_display_ptr(device);
+	int size = sizeof(struct disp_syncgen_par);
+
+	RET_ASSERT_VAL(sync_par, -EINVAL);
+	RET_ASSERT_VAL(DEVICE_SIZE > device, -EINVAL);
+	DBGOUT("%s: %s\n", __func__, dev_to_str(device));
+
+	memcpy(sync_par, &pdev->sync_gen, size);
+	return 0;
+}
+
+int	nxp_soc_disp_device_set_dev_param(enum disp_dev_type device, void *param)
+{
+	struct disp_process_dev *pdev = get_display_ptr(device);
 
 	RET_ASSERT_VAL(param, -EINVAL);
 	RET_ASSERT_VAL(DEVICE_SIZE > device, -EINVAL);
 	DBGOUT("%s: %s, param = %p \n", __func__, dev_to_str(device), pdev->dev_param);
 
-	if (device != DISP_DEVICE_SYNCGEN0 &&
-		device != DISP_DEVICE_SYNCGEN1) {
-		pdev->dev_param = param;
-		return 0;
-	}
-
-	pdst = pdev->dev_param;
-	psrc = param;
-	set_syncgen_param(pdst, psrc);
+	pdev->dev_param = param;
 	return 0;
 }
-
-int	nxp_soc_disp_device_get_param(int device, void *param)
-{
-	struct disp_process_dev *pdev = get_display_ptr(device);
-	int size = sizeof(struct disp_syncgen_param);
-
-	RET_ASSERT_VAL(param, -EINVAL);
-	RET_ASSERT_VAL(DEVICE_SIZE > device, -EINVAL);
-	DBGOUT("%s: %s, param = %p\n", __func__, dev_to_str(device), pdev->dev_param);
-
-	if (device == DISP_DEVICE_SYNCGEN0 ||
-		device == DISP_DEVICE_SYNCGEN1)
-		memcpy(param, pdev->dev_param, size);
-	else
-		param = pdev->dev_param;
-
-	return 0;
-}
-
 
 #define	no_prev(dev) 	(NULL == &dev->list.prev ? 1 : 0)
 #define	no_next(dev)  	(NULL == &dev->list.next ? 1 : 0)
 
-int nxp_soc_disp_device_suspend(int device)
+int nxp_soc_disp_device_suspend(enum disp_dev_type device)
 {
 	struct disp_process_ops *ops = NULL;
 	struct disp_control_info *info;
@@ -1643,7 +1739,7 @@ int nxp_soc_disp_device_suspend(int device)
 		}		\
 	}
 
-void nxp_soc_disp_device_resume(int device)
+void nxp_soc_disp_device_resume(enum disp_dev_type device)
 {
 	struct disp_process_ops *ops = NULL;
 	struct disp_control_info *info;
@@ -1686,10 +1782,7 @@ int nxp_soc_disp_device_suspend_all(int module)
 {
 	struct disp_control_info *info = get_module_to_info(module);
 	struct lcd_operation *lcd = info->lcd_ops;
-	struct disp_process_ops *ops;
-	struct disp_process_dev *pdev;
-	struct list_head *head, *pos;
-	int device;
+	int ret = 0;
 
 	RET_ASSERT_VAL(0 == module || 1 == module, -EINVAL);
 	PM_DBGOUT("%s: display.%d\n", __func__, module);
@@ -1698,26 +1791,20 @@ int nxp_soc_disp_device_suspend_all(int module)
 	if (lcd && lcd->backlight_suspend)
 		lcd->backlight_suspend(module, lcd->data);
 
-	/* device control */
-	device = (0 == module ? DISP_DEVICE_SYNCGEN0 : DISP_DEVICE_SYNCGEN1);
-	pdev = get_display_ptr(device);	/* syncgen */
-	head = &pdev->list;
-	pos  = head;
-	if (NULL == head->next && NULL == head->prev) {
-		PM_DBGOUT("display:%9s not connected display out ...\n", dev_to_str(pdev->dev_id));
+	if (list_empty(&info->link)) {
+		PM_DBGOUT("display:%9s not connected display out ...\n",
+			dev_to_str(((struct disp_process_dev *)
+			get_display_ptr((0 == module ? DISP_DEVICE_SYNCGEN0 : DISP_DEVICE_SYNCGEN1)))->dev_id));
 		return 0;
 	}
 
-	/* goto head */
-	for (; NULL != pos->prev; pos = pos->prev) { ; }
+	ret = disp_ops_suspend_devs(&disp_resconv_link, 1);		/* resolution convertor */
+	if (ret)
+		return ret;
 
-	for ( ; pos; pos = pos->next) {
-		pdev = container_of(pos, struct disp_process_dev, list);
-		ops  = pdev->disp_ops;
-		PM_DBGOUT("SUSPEND: %s, ops=0x%p\n", pdev->name, ops);
-		if (ops && ops->suspend)
-			ops->suspend(ops->dev);
-	}
+	ret = disp_ops_suspend_devs(&info->link, 1);			/* from last */
+	if (ret)
+		return ret;
 
 	/* LCD control */
 	if (lcd && lcd->lcd_suspend)
@@ -1726,15 +1813,11 @@ int nxp_soc_disp_device_suspend_all(int module)
 	return 0;
 }
 
-
 void nxp_soc_disp_device_resume_all(int module)
 {
 	struct disp_control_info *info = get_module_to_info(module);
 	struct lcd_operation *lcd = info->lcd_ops;
-	struct disp_process_ops *ops;
-	struct disp_process_dev *pdev;
-	struct list_head *head, *pos;
-	int device;
+
 	RET_ASSERT(0 == module || 1 == module);
 	PM_DBGOUT("%s: display.%d\n", __func__, module);
 
@@ -1745,34 +1828,27 @@ void nxp_soc_disp_device_resume_all(int module)
 		lcd->lcd_resume(module, lcd->data);
 
 	/* device control */
-	device = (0 == module ? DISP_DEVICE_SYNCGEN0 : DISP_DEVICE_SYNCGEN1);
-	pdev = get_display_ptr(device);	/* syncgen */
-	head = &pdev->list;
-	pos  = head;
-	if (NULL == head->next && NULL == head->prev) {
-		PM_DBGOUT("display:%9s not connected display out ...\n", dev_to_str(pdev->dev_id));
+	if (list_empty(&info->link)) {
+		PM_DBGOUT("display:%9s not connected display out ...\n",
+			dev_to_str(((struct disp_process_dev *)
+			get_display_ptr((0 == module ? DISP_DEVICE_SYNCGEN0 : DISP_DEVICE_SYNCGEN1)))->dev_id));
 		return;
 	}
 
-	/* goto tail */
-	for ( ; NULL != pos->next; pos = pos->next)
-	{ ; }
+	/* pre_resume */
+	disp_ops_pre_resume_devs(&disp_resconv_link);
+	disp_ops_pre_resume_devs(&info->link);
 
-	for ( ; pos; pos = pos->prev) {
-		pdev = container_of(pos, struct disp_process_dev, list);
-		ops  = pdev->disp_ops;
-		PM_DBGOUT("RESUME : %s, ops=0x%p\n", pdev->name, ops);
-		if (ops && ops->enable)
-			ops->resume(ops->dev);
-	}
+	/* resume */
+	disp_ops_suspend_devs(&info->link, 0);
+	disp_ops_suspend_devs(&disp_resconv_link, 0);
 
 	/* LCD control */
 	if (lcd && lcd->backlight_resume)
 		lcd->backlight_resume(module, lcd->data);
 }
 
-
-int nxp_soc_disp_device_enable(int device, int enable)
+int nxp_soc_disp_device_enable(enum disp_dev_type device, int enable)
 {
 	struct disp_process_ops *ops = NULL;
 	struct disp_control_info *info;
@@ -1820,7 +1896,7 @@ int nxp_soc_disp_device_enable(int device, int enable)
 	return ret;
 }
 
-int nxp_soc_disp_device_stat_enable(int device)
+int nxp_soc_disp_device_stat_enable(enum disp_dev_type device)
 {
 	struct disp_process_ops *ops = NULL;
 	RET_ASSERT_VAL(DEVICE_SIZE > device, -EINVAL);
@@ -1836,10 +1912,9 @@ int nxp_soc_disp_device_enable_all(int module, int enable)
 {
 	struct disp_control_info *info = get_module_to_info(module);
 	struct lcd_operation *lcd = info->lcd_ops;
-	struct disp_process_ops *ops;
-	struct disp_process_dev *pdev;
-	struct list_head *head, *pos;
-	int device;
+	enum disp_dev_type device;
+	int ret = 0;
+
 	RET_ASSERT_VAL(0 == module || 1 == module, -EINVAL);
 	DBGOUT("%s: display.%d, %s\n", __func__, module, enable?"ON":"OFF");
 
@@ -1853,40 +1928,29 @@ int nxp_soc_disp_device_enable_all(int module, int enable)
 	}
 
 	/* device control */
-	device = (0 == module ? DISP_DEVICE_SYNCGEN0 : DISP_DEVICE_SYNCGEN1);
-	pdev = get_display_ptr(device);	/* syncgen */
-	head = &pdev->list;
-	pos  = head;
-	if (NULL == head->next && NULL == head->prev) {
-		printk("display:%9s not connected display out ...\n", dev_to_str(pdev->dev_id));
+	if (list_empty(&info->link)) {
+		device = (0 == module ? DISP_DEVICE_SYNCGEN0 : DISP_DEVICE_SYNCGEN1);
+		printk("display:%9s not connected display out ...\n",
+			dev_to_str(((struct disp_process_dev *)get_display_ptr(device))->dev_id));
+		nxp_soc_disp_device_enable(device, 0);
 		return 0;
 	}
 
 	if (enable) {
-		/* goto tail */
-		for ( ; NULL != pos->next; pos = pos->next)
-		{ ; }
+		ret = disp_ops_prepare_devs(&disp_resconv_link);
+		if (ret)
+			return -EINVAL;
 
-		for ( ; pos; pos = pos->prev) {
-			pdev = container_of(pos, struct disp_process_dev, list);
-			ops  = pdev->disp_ops;
-			DBGOUT("ON : %s, ops=0x%p\n", pdev->name, ops);
+		ret = disp_ops_prepare_devs(&info->link);
+		if (ret)
+			return -EINVAL;
 
-			if (ops && ops->enable)
-				ops->enable(ops->dev, 1);
-		}
+		disp_ops_enable_devs(&info->link, 1);
+		disp_ops_enable_devs(&disp_resconv_link, 1);
+
 	} else {
-		/* goto head */
-		for ( ; NULL != pos->prev; pos = pos->prev)
-		{ ; }
-
-		for ( ; pos; pos = pos->next) {
-			pdev = container_of(pos, struct disp_process_dev, list);
-			ops  = pdev->disp_ops;
-			DBGOUT("OFF: %s, ops=0x%p\n", pdev->name, ops);
-			if (ops && ops->enable)
-				ops->enable(ops->dev, 0);
-		}
+		disp_ops_enable_devs(&disp_resconv_link, 0);
+		disp_ops_enable_devs(&info->link, 0);
 	}
 
 	/* LCD control */
@@ -1903,14 +1967,14 @@ int nxp_soc_disp_device_enable_all(int module, int enable)
 
 void nxp_soc_disp_device_reset_top(void)
 {
-	char *dev_str = "RESCONV, LCDIF, HDMI, LVDS, MiPi";
+	char *dev_str = "RESCONV, LCD, HDMI, LVDS, MiPi";
 	printk(KERN_INFO "display: Reset top control \n");
 	printk(KERN_INFO " - device selector(MUX) for %s\n", dev_str);
 	printk(KERN_INFO " - clock gen for %s\n", dev_str);
 	disp_topctl_reset();
 }
 
-void nxp_soc_disp_register_proc_ops(int device, struct disp_process_ops *ops)
+void nxp_soc_disp_register_proc_ops(enum disp_dev_type device, struct disp_process_ops *ops)
 {
 	struct disp_process_dev *pdev = get_display_ptr(device);
 	RET_ASSERT(DEVICE_SIZE > device);
@@ -1999,9 +2063,10 @@ EXPORT_SYMBOL(nxp_soc_disp_video_get_vfilter);
 /* Device */
 EXPORT_SYMBOL(nxp_soc_disp_device_connect_to);
 EXPORT_SYMBOL(nxp_soc_disp_device_disconnect);
-EXPORT_SYMBOL(nxp_soc_disp_device_get_vsync);
-EXPORT_SYMBOL(nxp_soc_disp_device_get_param);
-EXPORT_SYMBOL(nxp_soc_disp_device_set_param);
+EXPORT_SYMBOL(nxp_soc_disp_device_get_vsync_info);
+EXPORT_SYMBOL(nxp_soc_disp_device_get_sync_param);
+EXPORT_SYMBOL(nxp_soc_disp_device_set_sync_param);
+EXPORT_SYMBOL(nxp_soc_disp_device_set_dev_param);
 EXPORT_SYMBOL(nxp_soc_disp_device_suspend);
 EXPORT_SYMBOL(nxp_soc_disp_device_suspend_all);
 EXPORT_SYMBOL(nxp_soc_disp_device_resume);
@@ -2171,45 +2236,45 @@ static int display_soc_probe(struct platform_device *pldev)
 	struct disp_control_info *info;
 	struct disp_process_dev *pdev = NULL;
 	struct disp_multily_dev *pmly = NULL;
-	struct disp_syncgen_param *par = NULL;
+	struct disp_syncgen_par *psgen = NULL;
 	int module = pldev->id;
 	int size = sizeof(*info);
 	int ret = 0;
 	RET_ASSERT_VAL(0 == module || 1 == module, -EINVAL);
 
-	size += sizeof(struct disp_syncgen_param);
+	size += sizeof(struct disp_syncgen_par);
 	info = kzalloc(size, GFP_KERNEL);
 	if (! info) {
 		printk(KERN_ERR "Error, allocate memory (%d) for display.%d device \n",
 			module, size);
 		return -ENOMEM;
 	}
+	INIT_LIST_HEAD(&info->link);
 
 	/* set syncgen device */
 	pdev = get_display_ptr(DISP_DEVICE_SYNCGEN0 + module);
+	list_add(&pdev->list, &info->link);
 
 	pdev->dev_info = (void*)info;
 	pdev->dev_id = DISP_DEVICE_SYNCGEN0 + module;
-	pdev->dev_param = (struct disp_syncgen_param*)((char*)info + sizeof(*info));
 	pdev->disp_ops  = &syncgen_ops[module];
 	pdev->base_addr = (unsigned int)NX_DPC_GetBaseAddress(module);
 	pdev->save_addr = (unsigned int)&save_syncgen[module];
 	pdev->disp_ops->dev = pdev;
 
-	par = pdev->dev_param;
-	par->interlace = DEF_MLC_INTERLACE,
-	par->out_format = DEF_OUT_FORMAT,
-	par->lcd_mpu_type = 0,
-	par->invert_field = DEF_OUT_INVERT_FIELD,
-	par->swap_RB = DEF_OUT_SWAPRB,
-	par->yc_order = DEF_OUT_YCORDER,
-	par->delay_mask = 0,
-	par->vclk_select = DEF_PADCLKSEL,
-	par->clk_delay_lv0 = DEF_CLKGEN0_DELAY,
-	par->clk_inv_lv0 = DEF_CLKGEN0_INVERT,
-	par->clk_delay_lv1 = DEF_CLKGEN1_DELAY,
-	par->clk_inv_lv1 = DEF_CLKGEN1_INVERT,
-	par->clk_sel_div1 = DEF_CLKSEL1_SELECT,
+	psgen = &pdev->sync_gen;
+	psgen->interlace = DEF_MLC_INTERLACE,
+	psgen->out_format = DEF_OUT_FORMAT,
+	psgen->invert_field = DEF_OUT_INVERT_FIELD,
+	psgen->swap_RB = DEF_OUT_SWAPRB,
+	psgen->yc_order = DEF_OUT_YCORDER,
+	psgen->delay_mask = 0,
+	psgen->vclk_select = DEF_PADCLKSEL,
+	psgen->clk_delay_lv0 = DEF_CLKGEN0_DELAY,
+	psgen->clk_inv_lv0 = DEF_CLKGEN0_INVERT,
+	psgen->clk_delay_lv1 = DEF_CLKGEN1_DELAY,
+	psgen->clk_inv_lv1 = DEF_CLKGEN1_INVERT,
+	psgen->clk_sel_div1 = DEF_CLKSEL1_SELECT,
 
 	/* set multilayer device */
 	pmly = &info->multilayer;
@@ -2256,6 +2321,7 @@ static int __init display_soc_initcall(void)
 		printk(KERN_ERR "Fail, create kobject for display\n");
 		return -ret;
 	}
+
 	ret = sysfs_create_group(kobj, &attr_group);
 	if (ret) {
 		printk(KERN_ERR "Fail, create sysfs group for display\n");

@@ -4,7 +4,7 @@
 #include "hdmi-priv.h"
 /* #include "hdmi-preset.h" */
 
-void __iomem* hdmi_priv_io_base = NULL;
+void __iomem* soc_hdmi_priv_io_base = NULL;
 
 #if 0
 static void hdmi_reg_init(int color_range)
@@ -29,7 +29,7 @@ static void hdmi_reg_init(int color_range)
 }
 #endif
 
-void hdmi_set_dvi_mode(bool is_dvi)
+void soc_hdmi_set_dvi_mode(bool is_dvi)
 {
 	u32 val;
 
@@ -43,7 +43,7 @@ void hdmi_set_dvi_mode(bool is_dvi)
 	hdmi_write(HDMI_CON_2, val);
 }
 
-bool hdmi_is_phy_ready(void)
+bool soc_hdmi_is_phy_ready(void)
 {
 	u32 val = hdmi_read(HDMI_PHY_STATUS_0);
 	if (val & HDMI_PHY_STATUS_READY)
@@ -52,7 +52,7 @@ bool hdmi_is_phy_ready(void)
 	return false;
 }
 
-void hdmi_enable(bool on)
+void soc_hdmi_enable(bool on)
 {
 	if (on)
 		hdmi_write_mask(HDMI_CON_0, ~0, HDMI_EN);
@@ -60,7 +60,7 @@ void hdmi_enable(bool on)
 		hdmi_write_mask(HDMI_CON_0, 0, HDMI_EN);
 }
 
-void hdmi_hpd_enable(bool on)
+void soc_hdmi_hpd_enable(bool on)
 {
 	/* enable HPD interrupts */
 	if (on)
@@ -68,7 +68,7 @@ void hdmi_hpd_enable(bool on)
 			HDMI_INTC_EN_HPD_PLUG | HDMI_INTC_EN_HPD_UNPLUG);
 }
 
-void hdmi_tg_enable(bool on, bool is_interlace)
+void soc_hdmi_tg_enable(bool on, bool is_interlace)
 {
 	u32 mask;
 
@@ -82,12 +82,12 @@ void hdmi_tg_enable(bool on, bool is_interlace)
 #endif
 }
 
-void hdmi_stop_vsi(void)
+void soc_hdmi_stop_vsi(void)
 {
 	hdmi_writeb(HDMI_VSI_CON, HDMI_VSI_CON_DO_NOT_TRANSMIT);
 }
 
-u8 hdmi_chksum(u32 start, u8 len, u32 hdr_sum)
+u8 soc_hdmi_chksum(u32 start, u8 len, u32 hdr_sum)
 {
 	int i;
 
@@ -100,7 +100,7 @@ u8 hdmi_chksum(u32 start, u8 len, u32 hdr_sum)
 	return (u8)(0x100 - (hdr_sum & 0xff));
 }
 
-void hdmi_set_acr(int sample_rate, bool is_dvi)
+void soc_hdmi_set_acr(int sample_rate, bool is_dvi)
 {
 	u32 n, cts;
 
@@ -143,7 +143,7 @@ void hdmi_set_acr(int sample_rate, bool is_dvi)
 	hdmi_write(HDMI_ACR_CON, HDMI_ACR_CON_TX_MODE_MESURED_CTS);
 }
 
-void hdmi_audio_spdif_init(int audio_codec, int bits_per_sample)
+void soc_hdmi_audio_spdif_init(int audio_codec, int bits_per_sample)
 {
 	u32 val;
 	int bps, rep_time;
@@ -182,7 +182,7 @@ void hdmi_audio_spdif_init(int audio_codec, int bits_per_sample)
 	hdmi_write(HDMI_SPDIFIN_OP_CTRL, HDMI_SPDIFIN_STATUS_CHECK_MODE_HDMI);
 }
 
-void hdmi_audio_i2s_init(int sample_rate, int bps)
+void soc_hdmi_audio_i2s_init(int sample_rate, int bps)
 {
 	u32 data_num, bit_ch, sample_frq, val;
 
@@ -279,7 +279,7 @@ void hdmi_audio_i2s_init(int sample_rate, int bps)
 	hdmi_write(HDMI_I2S_MUX_CUV, val);
 }
 
-void hdmi_audio_enable(bool on)
+void soc_hdmi_audio_enable(bool on)
 {
 	if (on)
 		hdmi_write_mask(HDMI_CON_0, ~0, HDMI_ASP_ENABLE);
@@ -287,7 +287,7 @@ void hdmi_audio_enable(bool on)
 		hdmi_write_mask(HDMI_CON_0, 0, HDMI_ASP_ENABLE);
 }
 
-void hdmi_bluescreen_enable(bool on)
+void soc_hdmi_bluescreen_enable(bool on)
 {
 	if (on)
 		hdmi_write_mask(HDMI_CON_0, ~0, HDMI_BLUE_SCR_EN);
@@ -295,23 +295,23 @@ void hdmi_bluescreen_enable(bool on)
 		hdmi_write_mask(HDMI_CON_0, 0, HDMI_BLUE_SCR_EN);
 }
 
-void hdmi_mute(bool on)
+void soc_hdmi_mute(bool on)
 {
-	hdmi_bluescreen_enable(on);
-	hdmi_audio_enable(!on);
+	soc_hdmi_bluescreen_enable(on);
+	soc_hdmi_audio_enable(!on);
 }
 
-int hdmi_hpd_status(void)
+int soc_hdmi_hpd_status(void)
 {
 	return hdmi_read(HDMI_HPD_STATUS);
 }
 
-u8  hdmi_get_int_mask(void)
+u8  soc_hdmi_get_int_mask(void)
 {
 	return hdmi_readb(HDMI_INTC_CON_0);
 }
 
-void hdmi_set_int_mask(u8 mask, bool on)
+void soc_hdmi_set_int_mask(u8 mask, bool on)
 {
 	if (on) {
 		mask |= HDMI_INTC_EN_GLOBAL;
@@ -322,7 +322,7 @@ void hdmi_set_int_mask(u8 mask, bool on)
 
 }
 
-void hdmi_sw_hpd_enable(bool on)
+void soc_hdmi_sw_hpd_enable(bool on)
 {
 	if (on)
 		hdmi_write_mask(HDMI_HPD, ~0, HDMI_HPD_SEL_I_HPD);
@@ -330,7 +330,7 @@ void hdmi_sw_hpd_enable(bool on)
 		hdmi_write_mask(HDMI_HPD, 0, HDMI_HPD_SEL_I_HPD);
 }
 
-void hdmi_sw_hpd_plug(bool on)
+void soc_hdmi_sw_hpd_plug(bool on)
 {
 	if (on)
 		hdmi_write_mask(HDMI_HPD, ~0, HDMI_SW_HPD_PLUGGED);
@@ -338,7 +338,7 @@ void hdmi_sw_hpd_plug(bool on)
 		hdmi_write_mask(HDMI_HPD, 0, HDMI_SW_HPD_PLUGGED);
 }
 
-void hdmi_phy_sw_reset(void)
+void soc_hdmi_phy_sw_reset(void)
 {
 #if 0
 	hdmi_write_mask(HDMI_PHY_RSTOUT, ~0, HDMI_PHY_SW_RSTOUT);
@@ -347,7 +347,7 @@ void hdmi_phy_sw_reset(void)
 #endif
 }
 
-void hdmi_sw_reset(void)
+void soc_hdmi_sw_reset(void)
 {
 #if 0
 	hdmi_write_mask(HDMI_CORE_RSTOUT, 0, HDMI_CORE_SW_RSTOUT);
@@ -356,11 +356,11 @@ void hdmi_sw_reset(void)
 #endif
 }
 
-void hdmi_dump_regs(const char *prefix)
+void soc_hdmi_dump_regs(const char *prefix)
 {
 #define DUMPREG(reg_id) \
 	printk("%s:" #reg_id " = %08x\n", prefix, \
-		readl(hdmi_priv_io_base + reg_id))
+		readl(soc_hdmi_priv_io_base + reg_id))
 
 	int i;
 

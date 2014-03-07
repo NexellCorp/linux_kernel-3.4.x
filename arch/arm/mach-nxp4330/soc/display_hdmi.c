@@ -55,14 +55,14 @@ static const u8 hdmiphy_preset74_25[32] = {
     0xd1, 0x1f, 0x10, 0x40, 0x40, 0xf8, 0xc8, 0x81,
     0xe8, 0xba, 0xd8, 0x45, 0xa0, 0xac, 0x80, 0x56,
     0x80, 0x09, 0x84, 0x05, 0x22, 0x24, 0x86, 0x54,
-    0xa5, 0x24, 0x01, 0x00, 0x00, 0x01, 0x80, 0x10,
+    0xa5, 0x24, 0x01, 0x00, 0x00, 0x01, 0x10, 0x80,
 };
 
 static const u8 hdmiphy_preset148_5[32] = {
     0xd1, 0x1f, 0x00, 0x40, 0x40, 0xf8, 0xc8, 0x81,
     0xe8, 0xba, 0xd8, 0x45, 0xa0, 0xac, 0x80, 0x66,
     0x80, 0x09, 0x84, 0x05, 0x22, 0x24, 0x86, 0x54,
-    0x4b, 0x25, 0x03, 0x00, 0x00, 0x01, 0x80, 0x10,
+    0x4b, 0x25, 0x03, 0x00, 0x00, 0x01, 0x80,
 };
 
 enum NXP_HDMI_PRESET {
@@ -104,46 +104,37 @@ struct nxp_hdmi_context {
 
 static struct nxp_hdmi_context *_context = NULL;
 
-static int _hdmiphy_reg_set(const u8 *data, size_t size)
-{
-    int i;
-    u32 reg_addr;
-
-    NX_HDMI_SetReg(0, HDMI_PHY_Reg7C, (0<<7)); NX_HDMI_SetReg(0, HDMI_PHY_Reg7C, (0<<7));
-    NX_HDMI_SetReg(0, HDMI_PHY_Reg04, (0<<4)); NX_HDMI_SetReg(0, HDMI_PHY_Reg04, (0<<4));
-    NX_HDMI_SetReg(0, HDMI_PHY_Reg24, (1<<7)); NX_HDMI_SetReg(0, HDMI_PHY_Reg24, (1<<7));
-
-    for (i = 0, reg_addr = HDMI_PHY_Reg04; i < size; i++, reg_addr += 4)
-        NX_HDMI_SetReg(0, reg_addr, data[i]); NX_HDMI_SetReg(0, reg_addr, data[i]);
-
-    NX_HDMI_SetReg(0, HDMI_PHY_Reg7C, 0x80); NX_HDMI_SetReg(0, HDMI_PHY_Reg7C, 0x80);
-    NX_HDMI_SetReg(0, HDMI_PHY_Reg7C, (1<<7)); NX_HDMI_SetReg(0, HDMI_PHY_Reg7C, (1<<7));
-    return 0;
-}
-
 static int _hdmi_phy_enable(struct nxp_hdmi_context *me, int enable)
 {
-    int ret;
+	const u8 *table;
+	int size = 0;
+	u32 addr, i = 0;
 
     if (enable) {
-        const u8 *table;
         switch (me->cur_preset) {
-        case NXP_HDMI_PRESET_720P:
-            table = hdmiphy_preset74_25;
-            break;
-        case NXP_HDMI_PRESET_1080P:
-            table = hdmiphy_preset148_5;
-            break;
-        default:
-            printk(KERN_ERR "%s: invalid preset %d\n", __func__, me->cur_preset);
-            return -EINVAL;
-        }
+    	case NXP_HDMI_PRESET_720P:	table = hdmiphy_preset74_25; size = 32; break;
+    	case NXP_HDMI_PRESET_1080P: table = hdmiphy_preset148_5; size = 31; break;
+    	default: printk("hdmi: phy not support preset %d\n", me->cur_preset);
+    	    return -EINVAL;
+		}
 
-        ret = _hdmiphy_reg_set(table, NXP_HDMIPHY_PRESET_TABLE_SIZE);
-        if (ret < 0) {
-            printk(KERN_ERR "%s: failed to _hdmiphy_reg_set()\n", __func__);
-            return ret;
-        }
+    	NX_HDMI_SetReg(0, HDMI_PHY_Reg7C, (0<<7));
+    	NX_HDMI_SetReg(0, HDMI_PHY_Reg7C, (0<<7));
+    	NX_HDMI_SetReg(0, HDMI_PHY_Reg04, (0<<4));
+    	NX_HDMI_SetReg(0, HDMI_PHY_Reg04, (0<<4));
+    	NX_HDMI_SetReg(0, HDMI_PHY_Reg24, (1<<7));
+    	NX_HDMI_SetReg(0, HDMI_PHY_Reg24, (1<<7));
+
+    	for (i=0, addr=HDMI_PHY_Reg04; size > i; i++, addr+=4) {
+    	    NX_HDMI_SetReg(0, addr, table[i]);
+    	    NX_HDMI_SetReg(0, addr, table[i]);
+		}
+
+    	NX_HDMI_SetReg(0, HDMI_PHY_Reg7C, 0x80);
+    	NX_HDMI_SetReg(0, HDMI_PHY_Reg7C, 0x80);
+    	NX_HDMI_SetReg(0, HDMI_PHY_Reg7C, (1<<7));
+    	NX_HDMI_SetReg(0, HDMI_PHY_Reg7C, (1<<7));
+    	DBGOUT("%s: preset = %d\n", __func__, me->cur_preset);
     }
 
     return 0;
@@ -161,7 +152,7 @@ static inline bool _wait_for_ecid_ready(void)
         if (is_key_ready) break;
         msleep(1);
         retry_count--;
-    } while (retry_count);
+    } while (retry_count > 0);
 
     return is_key_ready;
 }
@@ -171,7 +162,6 @@ static inline void _hdmi_reset(void)
     NX_RSTCON_SetnRST(NX_HDMI_GetResetNumber(0, i_nRST_VIDEO), RSTCON_nDISABLE);
     NX_RSTCON_SetnRST(NX_HDMI_GetResetNumber(0, i_nRST_SPDIF), RSTCON_nDISABLE);
     NX_RSTCON_SetnRST(NX_HDMI_GetResetNumber(0, i_nRST_TMDS), RSTCON_nDISABLE);
-
     NX_RSTCON_SetnRST(NX_HDMI_GetResetNumber(0, i_nRST_VIDEO), RSTCON_nENABLE);
     NX_RSTCON_SetnRST(NX_HDMI_GetResetNumber(0, i_nRST_SPDIF), RSTCON_nENABLE);
     NX_RSTCON_SetnRST(NX_HDMI_GetResetNumber(0, i_nRST_TMDS), RSTCON_nENABLE);
@@ -183,107 +173,105 @@ static inline bool _wait_for_hdmiphy_ready(void)
     do {
         u32 regval = NX_HDMI_GetReg(0, HDMI_LINK_PHY_STATUS_0);
         if (regval & 0x01) {
-            printk("HDMI PHY Ready!!!\n");
+            DBGOUT("HDMI PHY Ready!!!\n");
             return true;
         }
         mdelay(10);
         retry_count--;
-    } while (retry_count);
+    } while (retry_count > 0);
 
     return false;
 }
 
 static inline int _get_vsync_info(int preset, int device,
-				struct disp_vsync_info *vsync, struct disp_syncgen_param *par)
+				struct disp_vsync_info *vsync, struct disp_syncgen_par *par)
 {
-	nxp_soc_disp_device_get_param(device, (void*)par);
+	if (vsync) {
+		switch (preset) {
+    	case NXP_HDMI_PRESET_720P:
+    	    /* 720p: 1280x720 */
+    	    vsync->h_active_len = 1280;
+    	    vsync->h_sync_width = 40;
+    	    vsync->h_back_porch = 220;
+    	    vsync->h_front_porch = 110;
+    	    vsync->h_sync_invert = 0;
+    	    vsync->v_active_len = 720;
+    	    vsync->v_sync_width = 5;
+    	    vsync->v_back_porch = 20;
+    	    vsync->v_front_porch = 5;
+    	    vsync->v_sync_invert = 0;
+    	    vsync->pixel_clock_hz = 74250000;
+    	    break;
 
-    switch (preset) {
-    case NXP_HDMI_PRESET_720P:
-        /* 720p: 1280x720 */
-        vsync->h_active_len = 1280;
-        vsync->h_sync_width = 40;
-        vsync->h_back_porch = 220;
-        vsync->h_front_porch = 110;
-        vsync->h_sync_invert = 0;
-        vsync->v_active_len = 720;
-        vsync->v_sync_width = 5;
-        vsync->v_back_porch = 20;
-        vsync->v_front_porch = 5;
-        vsync->v_sync_invert = 0;
-        vsync->pixel_clock_hz = 74250000;
-        break;
+    	case NXP_HDMI_PRESET_1080P:
+    	    /* 1080p: 1920x1080 */
+    	    vsync->h_active_len = 1920;
+    	    vsync->h_sync_width = 44;
+    	    vsync->h_back_porch = 148;
+    	    vsync->h_front_porch = 88;
+    	    vsync->h_sync_invert = 0;
+    	    vsync->v_active_len = 1080;
+    	    vsync->v_sync_width = 5;
+    	    vsync->v_back_porch = 36;
+    	    vsync->v_front_porch = 4;
+    	    vsync->v_sync_invert = 0;
+    	    vsync->pixel_clock_hz = 148500000;
+    	    break;
 
-    case NXP_HDMI_PRESET_1080P:
-        /* 1080p: 1920x1080 */
-        vsync->h_active_len = 1920;
-        vsync->h_sync_width = 44;
-        vsync->h_back_porch = 148;
-        vsync->h_front_porch = 88;
-        vsync->h_sync_invert = 0;
-        vsync->v_active_len = 1080;
-        vsync->v_sync_width = 5;
-        vsync->v_back_porch = 36;
-        vsync->v_front_porch = 4;
-        vsync->v_sync_invert = 0;
-        vsync->pixel_clock_hz = 148500000;
-        break;
+    	default:
+    	    printk(KERN_ERR "%s: invalid preset value 0x%x\n", __func__, preset);
+    	    return -EINVAL;
+    	}
 
-    default:
-        printk(KERN_ERR "%s: invalid preset value 0x%x\n", __func__, preset);
-        return -EINVAL;
-    }
+    	vsync->clk_src_lv0 = 4;
+    	vsync->clk_div_lv0 = 1;
+    	vsync->clk_src_lv1 = 7;
+    	vsync->clk_div_lv1 = 1;
+	}
 
-    vsync->clk_src_lv0 = 4;
-    vsync->clk_div_lv0 = 1;
-    vsync->clk_src_lv1 = 7;
-    vsync->clk_div_lv1 = 1;
+	if (par) {
+		nxp_soc_disp_device_get_sync_param(device, (void*)par);
 
-	par->out_format	= OUTPUTFORMAT_RGB888;
-	par->delay_mask = (DISP_SYNCGEN_DELAY_RGB_PVD | DISP_SYNCGEN_DELAY_HSYNC_CP1 |
-					   DISP_SYNCGEN_DELAY_VSYNC_FRAM | DISP_SYNCGEN_DELAY_DE_CP);
-	par->d_rgb_pvd = 0;
-	par->d_hsync_cp1 = 0;
-	par->d_vsync_fram = 0;
-	par->d_de_cp2 = 7;
+		par->out_format	= OUTPUTFORMAT_RGB888;
+		par->delay_mask = (DISP_SYNCGEN_DELAY_RGB_PVD | DISP_SYNCGEN_DELAY_HSYNC_CP1 |
+						   DISP_SYNCGEN_DELAY_VSYNC_FRAM | DISP_SYNCGEN_DELAY_DE_CP);
+		par->d_rgb_pvd = 0;
+		par->d_hsync_cp1 = 0;
+		par->d_vsync_fram = 0;
+		par->d_de_cp2 = 7;
 
-	//	HFP + HSW + HBP + AVWidth-VSCLRPIXEL- 1;
-	par->vs_start_offset = (vsync->h_front_porch + vsync->h_sync_width +
+		//	HFP + HSW + HBP + AVWidth-VSCLRPIXEL- 1;
+		par->vs_start_offset = (vsync->h_front_porch + vsync->h_sync_width +
 						vsync->h_back_porch + vsync->h_active_len - 1);
-	par->vs_end_offset = 0;
-	// HFP + HSW + HBP + AVWidth-EVENVSCLRPIXEL- 1
-	par->ev_start_offset = (vsync->h_front_porch + vsync->h_sync_width +
+		par->vs_end_offset = 0;
+		// HFP + HSW + HBP + AVWidth-EVENVSCLRPIXEL- 1
+		par->ev_start_offset = (vsync->h_front_porch + vsync->h_sync_width +
 						vsync->h_back_porch + vsync->h_active_len - 1);
-	par->ev_end_offset = 0;
+		par->ev_end_offset = 0;
+	}
 
     return 0;
 }
 
-static int _set_remote_sync(struct nxp_hdmi_context *me)
+static int _hdmi_mux(struct nxp_hdmi_context *me)
 {
-    int ret;
     struct disp_vsync_info vsync;
-    struct disp_syncgen_param param;
+    struct disp_syncgen_par sgpar;
+    U32 HDMI_SEL = 0;
     int source_device = me->source_device;
+    int ret;
 
+	DBGOUT("%s from %s\n", __func__, dev_to_str(source_device));
     switch (source_device) {
-    case DISP_DEVICE_SYNCGEN0:
-        NX_DISPLAYTOP_SetHDMIMUX(CTRUE, PrimaryMLC);
-        me->source_dpc_module_num = 0;
-        break;
-    case DISP_DEVICE_SYNCGEN1:
-        NX_DISPLAYTOP_SetHDMIMUX(CTRUE, SecondaryMLC);
-        me->source_dpc_module_num = 1;
-        break;
-    case DISP_DEVICE_RESCONV:
-        NX_DISPLAYTOP_SetHDMIMUX(CTRUE, ResolutionConv);
-        break;
-    default:
-        printk(KERN_ERR "%s: invalid source device %d\n", __func__, source_device);
-        return -EINVAL;
+		case DISP_DEVICE_SYNCGEN0: HDMI_SEL = PrimaryMLC;  		break;
+		case DISP_DEVICE_SYNCGEN1: HDMI_SEL = SecondaryMLC; 	break;
+   		case DISP_DEVICE_RESCONV:  HDMI_SEL = ResolutionConv; 	break;
+    	default:
+        	printk(KERN_ERR "%s: invalid source device %d\n", __func__, source_device);
+        	return -EINVAL;
     }
 
-    ret = _get_vsync_info(me->cur_preset, source_device, &vsync, &param);
+    ret = _get_vsync_info(me->cur_preset, source_device, &vsync, &sgpar);
     if (ret) {
         printk(KERN_ERR "%s: failed to _get_vsync_info()\n", __func__);
         return ret;
@@ -292,24 +280,19 @@ static int _set_remote_sync(struct nxp_hdmi_context *me)
     /* vsync.interlace_scan = me->cur_conf->mbus_fmt.field == V4L2_FIELD_INTERLACED; */
     vsync.interlace = 0;
 
-    ret = nxp_soc_disp_device_set_param(source_device, (void*)&param);
+	ret = nxp_soc_disp_device_set_vsync_info(source_device, &vsync);
+    ret = nxp_soc_disp_device_set_sync_param(source_device, (void*)&sgpar);
     if (ret) {
         pr_err("%s: failed to display parameter....\n", __func__);
         return ret;
     }
 
-#if (0)
- 	ret = nxp_soc_disp_device_connect_to(DISP_DEVICE_HDMI, source_device, &vsync);
-    if (ret) {
-        printk(KERN_ERR "%s: failed to connect to source\n", __func__);
-        return ret;
-    }
-	ret = nxp_soc_disp_device_enable(source_device, 1);
-#endif
+	NX_DISPLAYTOP_SetHDMIMUX(CTRUE, HDMI_SEL);
+
 	return ret;
 }
 
-static void _set_hdmi_clkgen(void)
+static void _hdmi_clock(void)
 {
     NX_DISPTOP_CLKGEN_SetBaseAddress(ToMIPI_CLKGEN,
             (U32)IO_ADDRESS(NX_DISPTOP_CLKGEN_GetPhysicalAddress(ToMIPI_CLKGEN)));
@@ -319,43 +302,24 @@ static void _set_hdmi_clkgen(void)
     NX_DISPTOP_CLKGEN_SetClockDivisor(ToMIPI_CLKGEN, HDMI_SPDIF_CLKOUT, 2);
     NX_DISPTOP_CLKGEN_SetClockSource(ToMIPI_CLKGEN, 1, 7);
     NX_DISPTOP_CLKGEN_SetClockDivisorEnable(ToMIPI_CLKGEN, CTRUE);
+
+	// must initialize this !!
+	NX_DISPLAYTOP_HDMI_SetVSyncHSStartEnd(0, 0);
+	NX_DISPLAYTOP_HDMI_SetVSyncStart(0); // from posedge VSync
+	NX_DISPLAYTOP_HDMI_SetHActiveStart(0); // from posedge HSync
+	NX_DISPLAYTOP_HDMI_SetHActiveEnd(0); // from posedge HSync
 }
 
-static void _set_audio_clkgen(void)
+static int _hdmi_setup(struct nxp_hdmi_context *me)
 {
-    NX_DISPTOP_CLKGEN_SetBaseAddress(ToMIPI_CLKGEN,
-            (U32)IO_ADDRESS(NX_DISPTOP_CLKGEN_GetPhysicalAddress(ToMIPI_CLKGEN)));
-    NX_DISPTOP_CLKGEN_SetClockPClkMode(ToMIPI_CLKGEN, NX_PCLKMODE_ALWAYS);
-    NX_DISPTOP_CLKGEN_SetClockDivisorEnable(ToMIPI_CLKGEN, CTRUE);
-}
+    u32 width, height;
+    u32 hfp, hsw, hbp;
+    u32 vfp, vsw, vbp;
 
-static void _hdmi_sync_init(void)
-{
-    NX_DISPLAYTOP_HDMI_SetVSyncHSStartEnd(0, 0);
-    NX_DISPLAYTOP_HDMI_SetVSyncStart(0);
-    NX_DISPLAYTOP_HDMI_SetHActiveStart(0);
-    NX_DISPLAYTOP_HDMI_SetHActiveEnd(0);
-}
-
-static int _hdmi_config(struct nxp_hdmi_context *me)
-{
-    u32 width;
-    u32 height;
-    u32 hfp;
-    u32 hsw;
-    u32 hbp;
-    u32 vfp;
-    u32 vsw;
-    u32 vbp;
-
-    u32 h_blank;
-    u32 v_blank;
-    u32 v_actline;
-    u32 v2_blank;
-    u32 v_line;
-    u32 h_line;
-    u32 h_sync_start;
-    u32 h_sync_end;
+    u32 h_blank, v_blank;
+    u32 v_actline, v2_blank;
+    u32 v_line, h_line;
+    u32 h_sync_start, h_sync_end;
     u32 v_sync_line_bef_1;
     u32 v_sync_line_bef_2;
 
@@ -363,7 +327,7 @@ static int _hdmi_config(struct nxp_hdmi_context *me)
 
     switch (me->cur_preset) {
     case NXP_HDMI_PRESET_720P:
-        printk("%s: 720p\n", __func__);
+        DBGOUT("%s: 720p\n", __func__);
         width = 1280;
         height = 720;
         hfp = 110;
@@ -374,7 +338,7 @@ static int _hdmi_config(struct nxp_hdmi_context *me)
         vbp = 20;
         break;
     case NXP_HDMI_PRESET_1080P:
-        printk("%s: 1080p\n", __func__);
+        DBGOUT("%s: 1080p\n", __func__);
         width = 1920;
         height = 1080;
         hfp = 88;
@@ -543,14 +507,14 @@ static int _hdmi_config(struct nxp_hdmi_context *me)
 
 static void _hdmi_start(struct nxp_hdmi_context *me)
 {
-    u32 regval = NX_HDMI_GetReg(0, HDMI_LINK_HDMI_CON_0);
-    regval |= 0x01;
+    u32 regval = NX_HDMI_GetReg(0, HDMI_LINK_HDMI_CON_0)| 0x01;
     NX_HDMI_SetReg(0, HDMI_LINK_HDMI_CON_0, regval);
 
     NX_DISPLAYTOP_HDMI_SetVSyncStart(me->v_sync_start);
     NX_DISPLAYTOP_HDMI_SetHActiveStart(me->h_active_start);
     NX_DISPLAYTOP_HDMI_SetHActiveEnd(me->h_active_end);
     NX_DISPLAYTOP_HDMI_SetVSyncHSStartEnd(me->v_sync_hs_start_end0, me->v_sync_hs_start_end1);
+    DBGOUT("%s\n", __func__);
 }
 
 static void _hdmi_reg_infoframe(struct nxp_hdmi_context *me,
@@ -562,7 +526,7 @@ static void _hdmi_reg_infoframe(struct nxp_hdmi_context *me,
     u32 aspect_ratio;
     u32 vic;
 
-    pr_debug("%s: infoframe type = 0x%x\n", __func__, infoframe->type);
+    DBGOUT("%s: infoframe type = 0x%x\n", __func__, infoframe->type);
 
     if (me->is_dvi) {
         hdmi_writeb(HDMI_VSI_CON, HDMI_VSI_CON_DO_NOT_TRANSMIT);
@@ -591,8 +555,8 @@ static void _hdmi_reg_infoframe(struct nxp_hdmi_context *me,
         }
         hdmi_writeb(HDMI_VSI_HEADER2, infoframe->len);
         hdr_sum = infoframe->type + infoframe->ver + infoframe->len;
-        chksum = hdmi_chksum(HDMI_VSI_DATA(1), infoframe->len, hdr_sum);
-        pr_debug("%s: VSI checksum = 0x%x\n", __func__, chksum);
+        chksum = soc_hdmi_chksum(HDMI_VSI_DATA(1), infoframe->len, hdr_sum);
+        DBGOUT("%s: VSI checksum = 0x%x\n", __func__, chksum);
         hdmi_writeb(HDMI_VSI_DATA(0), chksum);
         break;
 
@@ -613,10 +577,10 @@ static void _hdmi_reg_infoframe(struct nxp_hdmi_context *me,
             hdmi_writeb(HDMI_AVI_BYTE(3), AVI_FULL_RANGE);
         else
             hdmi_writeb(HDMI_AVI_BYTE(3), AVI_LIMITED_RANGE);
-        pr_debug("%s: VIC code = %d\n", __func__, vic);
+        DBGOUT("%s: VIC code = %d\n", __func__, vic);
         hdmi_writeb(HDMI_AVI_BYTE(4), vic);
-        chksum = hdmi_chksum(HDMI_AVI_BYTE(1), infoframe->len, hdr_sum);
-        pr_debug("%s: AVI checksum = 0x%x\n", __func__, chksum);
+        chksum = soc_hdmi_chksum(HDMI_AVI_BYTE(1), infoframe->len, hdr_sum);
+        DBGOUT("%s: AVI checksum = 0x%x\n", __func__, chksum);
         hdmi_writeb(HDMI_AVI_CHECK_SUM, chksum);
         break;
 
@@ -633,8 +597,8 @@ static void _hdmi_reg_infoframe(struct nxp_hdmi_context *me,
             hdmi_writeb(HDMI_AUI_BYTE(4), 0x13);
         else
             hdmi_writeb(HDMI_AUI_BYTE(4), 0x00);
-        chksum = hdmi_chksum(HDMI_AUI_BYTE(1), infoframe->len, hdr_sum);
-        pr_debug("%s: AUI checksum = 0x%x\n", __func__, chksum);
+        chksum = soc_hdmi_chksum(HDMI_AUI_BYTE(1), infoframe->len, hdr_sum);
+        DBGOUT("%s: AUI checksum = 0x%x\n", __func__, chksum);
         hdmi_writeb(HDMI_AUI_CHECK_SUM, chksum);
         break;
 
@@ -651,7 +615,7 @@ static int _hdmi_set_infoframe(struct nxp_hdmi_context *me)
 
     info_3d.is_3d = 0;
 
-    hdmi_stop_vsi();
+    soc_hdmi_stop_vsi();
 
     infoframe.type = HDMI_PACKET_TYPE_AVI;
     infoframe.ver  = HDMI_AVI_VERSION;
@@ -670,10 +634,10 @@ static int _hdmi_set_infoframe(struct nxp_hdmi_context *me)
 
 static void _hdmi_set_packets(struct nxp_hdmi_context *me)
 {
-    hdmi_set_acr(me->sample_rate, me->is_dvi);
+    soc_hdmi_set_acr(me->sample_rate, me->is_dvi);
 }
 
-void nxp_soc_disp_hdmi_initialize(void)
+void _hdmi_initialize(void)
 {
     struct nxp_hdmi_context *me = _context;
 
@@ -686,10 +650,10 @@ void nxp_soc_disp_hdmi_initialize(void)
         /**
          * [SEQ 1] release the reset of DisplayTop.i_Top_nRst)
          */
-#if 0
+	#if 0
         NX_RSTCON_SetnRST(NX_DISPLAYTOP_GetResetNumber(), RSTCON_nDISABLE);
         NX_RSTCON_SetnRST(NX_DISPLAYTOP_GetResetNumber(), RSTCON_nENABLE);
-#endif
+	#endif
 
         /**
          * [SEQ 2] set the HDMI CLKGEN's PCLKMODE to always enabled
@@ -713,20 +677,19 @@ void nxp_soc_disp_hdmi_initialize(void)
          */
         NX_RSTCON_SetnRST(NX_HDMI_GetResetNumber(0, i_nRST_PHY), RSTCON_nDISABLE);
         NX_RSTCON_SetnRST(NX_HDMI_GetResetNumber(0, i_nRST), RSTCON_nDISABLE);
-
         NX_RSTCON_SetnRST(NX_HDMI_GetResetNumber(0, i_nRST_PHY), RSTCON_nENABLE);
         NX_RSTCON_SetnRST(NX_HDMI_GetResetNumber(0, i_nRST), RSTCON_nENABLE);
 
         me->initialized = true;
 
         /**
-         * Next sequence start in nxp_soc_disp_hdmi_enable()
+         * Next sequence start in _hdmi_prepare()
          */
     }
 }
 
 /* int nxp_soc_disp_hdmi_streamon(struct nxp_hdmi_context *me) */
-int nxp_soc_disp_hdmi_enable(int enable)
+static int _hdmi_prepare(int enable)
 {
     int ret;
     struct nxp_hdmi_context *me = _context;
@@ -774,42 +737,30 @@ int nxp_soc_disp_hdmi_enable(int enable)
             return -EIO;
         }
 
+		/* set mux */
+        _hdmi_mux(me);
+
         /**
          * [SEC 10] Set the DPC CLKGEN’s Source Clock to HDMI_CLK & Set Sync Parameter
          */
-        _set_hdmi_clkgen(); /* set hdmi link clk to clkgen  vs default is hdmi phy clk */
-        _set_audio_clkgen();
-        _hdmi_sync_init();
+        _hdmi_clock(); /* set hdmi link clk to clkgen  vs default is hdmi phy clk */
 
         /**
          * [SEQ 11] Set up the HDMI Converter parameters
          */
-        _hdmi_config(me);
-        _set_remote_sync(me);
-
+        _hdmi_setup(me);
         _hdmi_set_infoframe(me);
         _hdmi_set_packets(me);
-
-        hdmi_audio_spdif_init(me->audio_codec, me->bits_per_sample);
+        soc_hdmi_audio_spdif_init(me->audio_codec, me->bits_per_sample);
 
         if (me->audio_enable)
-            hdmi_audio_enable(true);
-
-        /* hdmi_set_dvi_mode(me->is_dvi); */
-
-        _hdmi_start(me);
-
-        mdelay(5);
-        me->streaming = true;
-    } else {
-        me->streaming = false;
-        _hdmi_phy_enable(me, 0);
+            soc_hdmi_audio_enable(true);
     }
 
     return 0;
 }
 
-int nxp_soc_disp_hdmi_set_preset(int preset)
+static int _hdmi_set_preset(int preset)
 {
     struct nxp_hdmi_context *me = _context;
 
@@ -826,31 +777,103 @@ int nxp_soc_disp_hdmi_set_preset(int preset)
     return 0;
 }
 
-EXPORT_SYMBOL(nxp_soc_disp_hdmi_initialize);
-EXPORT_SYMBOL(nxp_soc_disp_hdmi_enable);
-EXPORT_SYMBOL(nxp_soc_disp_hdmi_set_preset);
-
-
-static int  nxp_hdmi_enable(struct disp_process_dev *dev, int enable)
+static int  hdmi_prepare(struct disp_process_dev *dev)
 {
+	DBGOUT("%s %s\n", __func__, dev_to_str(dev->dev_id));
+
+	return _hdmi_prepare(1);
+}
+
+static int  hdmi_enable(struct disp_process_dev *dev, int enable)
+{
+    struct nxp_hdmi_context *me = _context;
 	DBGOUT("%s %s, %s\n", __func__, dev_to_str(dev->dev_id), enable?"ON":"OFF");
-	return nxp_soc_disp_hdmi_enable(enable);
+
+	if (enable) {
+        /* hdmi_set_dvi_mode(me->is_dvi); */
+        _hdmi_start(me);
+        mdelay(5);
+        me->streaming = true;
+ 	} else {
+        me->streaming = false;
+   		_hdmi_phy_enable(me, 0);
+    }
+
+	return 0;
+}
+
+static int hdmi_get_vsync(struct disp_process_dev *pdev, struct disp_vsync_info *psync)
+{
+	struct nxp_hdmi_context *me = _context;
+	int source_device = me->source_device;
+	RET_ASSERT_VAL(pdev && psync, -EINVAL);
+	DBGOUT("%s: %s\n", __func__, dev_to_str(pdev->dev_id));
+
+	return _get_vsync_info(me->cur_preset, source_device, psync, NULL);
+}
+
+static int  hdmi_stat_enable(struct disp_process_dev *pdev)
+{
+	return pdev->status & PROC_STATUS_ENABLE ? 1 : 0;
+}
+
+static int  hdmi_suspend(struct disp_process_dev *pdev)
+{
+	struct nxp_hdmi_context *me = _context;
+	PM_DBGOUT("%s\n", __func__);
+
+	me->streaming = false;
+   	_hdmi_phy_enable(me, 0);
+
+	return 0;
+}
+
+static void hdmi_pre_resume(struct disp_process_dev *pdev)
+{
+	struct nxp_hdmi_context *me = _context;
+	PM_DBGOUT("%s\n", __func__);
+
+	me->initialized = false;
+	_hdmi_initialize();
+
+	me->streaming = false;
+	_hdmi_prepare(1);
+    me->streaming = true;
+}
+
+static void hdmi_resume(struct disp_process_dev *pdev)
+{
+	struct nxp_hdmi_context *me = _context;
+	PM_DBGOUT("%s\n", __func__);
+
+	_hdmi_start(me);
+    mdelay(5);
+    me->streaming = true;
 }
 
 static struct disp_process_ops hdmi_ops = {
-	.enable 	= nxp_hdmi_enable,
+	.get_vsync 		= hdmi_get_vsync,
+	.prepare 		= hdmi_prepare,
+	.enable 		= hdmi_enable,
+	.stat_enable 	= hdmi_stat_enable,
+	.suspend 		= hdmi_suspend,
+	.pre_resume		= hdmi_pre_resume,
+	.resume 		= hdmi_resume,
 };
 
 static int hdmi_probe(struct platform_device *pdev)
 {
-	struct nxp_hdmi_plat_data *plat = pdev->dev.platform_data;
+	struct nxp_lcd_plat_data *plat = pdev->dev.platform_data;
+	struct disp_hdmi_param *phdmi;
     struct nxp_hdmi_context *ctx = NULL;
     struct disp_vsync_info vsync;
-    struct disp_syncgen_param param;
+    struct disp_syncgen_par sgpar;
+    int device = DISP_DEVICE_HDMI;
 
 	RET_ASSERT_VAL(plat, -EINVAL);
 	RET_ASSERT_VAL(plat->display_in == DISP_DEVICE_SYNCGEN0 ||
 				   plat->display_in == DISP_DEVICE_SYNCGEN1 ||
+				   plat->display_dev == DISP_DEVICE_HDMI ||
 				   plat->display_in == DISP_DEVICE_RESCONV, -EINVAL);
 
     ctx = (struct nxp_hdmi_context *)kzalloc(sizeof(struct nxp_hdmi_context), GFP_KERNEL);
@@ -859,8 +882,14 @@ static int hdmi_probe(struct platform_device *pdev)
         return -ENOMEM;
     }
 
+	phdmi = kzalloc(sizeof(*phdmi), GFP_KERNEL);
+	RET_ASSERT_VAL(phdmi, -EINVAL);
+
+	if (plat->dev_param)
+		memcpy(phdmi, plat->dev_param, sizeof(*phdmi));
+
     _context = ctx;
-    _context->cur_preset = plat->preset;
+    _context->cur_preset = phdmi->preset;
     _context->source_device = plat->display_in;
 
     mutex_init(&_context->mutex);
@@ -876,10 +905,10 @@ static int hdmi_probe(struct platform_device *pdev)
 
     hdmi_set_base((void *)IO_ADDRESS(NX_HDMI_GetPhysicalAddress(0)));
 
-	_get_vsync_info(_context->cur_preset, _context->source_device, &vsync, &param);
+	_get_vsync_info(_context->cur_preset, _context->source_device, &vsync, &sgpar);
 
-	nxp_soc_disp_hdmi_initialize();
-	nxp_soc_disp_hdmi_set_preset(_context->cur_preset);
+	_hdmi_initialize();
+	_hdmi_set_preset(_context->cur_preset);
 
     if (_context->cur_preset == NXP_HDMI_PRESET_720P) {
         _context->vic = 4;
@@ -887,9 +916,12 @@ static int hdmi_probe(struct platform_device *pdev)
         _context->vic = 16;
     }
 
-	nxp_soc_disp_device_set_param(plat->display_in, &param);
 	nxp_soc_disp_register_proc_ops(DISP_DEVICE_HDMI, &hdmi_ops);
 	nxp_soc_disp_device_connect_to(DISP_DEVICE_HDMI, _context->source_device, &vsync);
+
+	printk("HDMI: [%d]=%s connect to [%d]=%s\n",
+		device, dev_to_str(device), plat->display_in, dev_to_str(plat->display_in));
+
 	return 0;
 }
 

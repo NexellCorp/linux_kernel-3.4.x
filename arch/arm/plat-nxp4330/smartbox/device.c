@@ -95,9 +95,44 @@ static struct platform_device dfs_plat_device = {
 
 
 /*------------------------------------------------------------------------------
- * Frame Buffer platform device
+ * DISPLAY (LVDS) / FB
  */
-#include "dev-fb.c"
+#if defined (CONFIG_FB_NEXELL)
+#if defined (CONFIG_FB0_NEXELL)
+static struct nxp_fb_plat_data fb0_plat_data = {
+	.module			= CONFIG_FB0_NEXELL_DISPOUT,
+	.layer			= CFG_DISP_PRI_SCREEN_LAYER,
+	.format			= CFG_DISP_PRI_SCREEN_RGB_FORMAT,
+	.bgcolor		= CFG_DISP_PRI_BACK_GROUND_COLOR,
+	.bitperpixel	= CFG_DISP_PRI_SCREEN_PIXEL_BYTE * 8,
+	.x_resol		= CFG_DISP_PRI_RESOL_WIDTH,
+	.y_resol		= CFG_DISP_PRI_RESOL_HEIGHT,
+	#ifdef CONFIG_ANDROID
+	.buffers		= 3,
+	.skip_pan_vsync	= 1,
+	#else
+	.buffers		= 2,
+	#endif
+	.lcd_with_mm	= CFG_DISP_PRI_LCD_WIDTH_MM,	/* 152.4 */
+	.lcd_height_mm	= CFG_DISP_PRI_LCD_HEIGHT_MM,	/* 91.44 */
+};
+
+static struct platform_device fb0_device = {
+	.name	= DEV_NAME_FB,
+	.id		= 0,	/* FB device node num */
+	.dev    = {
+		.coherent_dma_mask 	= 0xffffffffUL,	/* for DMA allocate */
+		.platform_data		= &fb0_plat_data
+	},
+};
+#endif
+
+static struct platform_device *fb_devices[] = {
+	#if defined (CONFIG_FB0_NEXELL)
+	&fb0_device,
+	#endif
+};
+#endif /* CONFIG_FB_NEXELL */
 
 /*------------------------------------------------------------------------------
  * NAND device
@@ -1061,11 +1096,14 @@ void __init nxp_board_devices_register(void)
 {
 	printk("[Register board platform devices]\n");
 
-	nxp_fb_device_register();
-
 #if defined(CONFIG_ARM_NXP4330_CPUFREQ)
 	printk("plat: add dynamic frequency (pll.%d)\n", dfs_plat_data.pll_dev);
 	platform_device_register(&dfs_plat_device);
+#endif
+
+#if defined (CONFIG_FB_NEXELL)
+	printk("plat: add framebuffer\n");
+	platform_add_devices(fb_devices, ARRAY_SIZE(fb_devices));
 #endif
 
 #if defined(CONFIG_MMC_DW)

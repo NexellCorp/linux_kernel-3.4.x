@@ -175,35 +175,6 @@ static AMBA_AHB_DEVICE(uart5, "uart-pl011.5", 0, PHY_BASEADDR_UART5, {IRQ_PHY_UA
 #endif /* CONFIG_SERIAL_AMBA_PL011 */
 
 /*------------------------------------------------------------------------------
- * Syncgen
- */
-#if defined(CONFIG_NEXELL_SOC_DISP)
-
-#if defined(CONFIG_NEXELL_SOC_DISP_PRI)
-static struct platform_device syncgen_primary = {
-	.name	= DEV_NAME_DISP,
-	.id		= 0,	/* module id */
-};
-#endif
-
-#if defined(CONFIG_NEXELL_SOC_DISP_SEC)
-static struct platform_device syncgen_second = {
-	.name	= DEV_NAME_DISP,
-	.id		= 1,	/* module id */
-};
-#endif
-
-static struct platform_device *syncgens[] __initdata = {
-	#if defined(CONFIG_NEXELL_SOC_DISP_PRI)
-	&syncgen_primary,
-	#endif
-	#if defined(CONFIG_NEXELL_SOC_DISP_SEC)
-	&syncgen_second,
-	#endif
-};
-#endif
-
-/*------------------------------------------------------------------------------
  * I2C Bus platform device
  */
 
@@ -1230,6 +1201,11 @@ static struct platform_device adc_device = {
 #endif /* CONFIG_NXP_ADC */
 
 /*------------------------------------------------------------------------------
+ * Display
+ */
+#include "dev-display.c"
+
+/*------------------------------------------------------------------------------
  * register cpu platform devices
  */
 void __init nxp_cpu_devices_register(void)
@@ -1263,14 +1239,39 @@ void __init nxp_cpu_devices_register(void)
 	NX_UART_CH_INIT(5);
 	#endif
 
+#if defined(CONFIG_NEXELL_DISPLAY)
+    printk("mach: add device syncgen [%d]\n", ARRAY_SIZE(syncgen_devices));
+    platform_add_devices(syncgen_devices, ARRAY_SIZE(syncgen_devices));
+#endif
+
+#if defined(CONFIG_NEXELL_DISPLAY_LCD)
+	printk("mach: add device lcd \n");
+	platform_device_register(&lcd_device);
+#endif
+
+#if defined(CONFIG_NEXELL_DISPLAY_LVDS)
+	printk("mach: add device lvds \n");
+	platform_device_register(&lvds_device);
+#endif
+
+#if defined(CONFIG_NEXELL_DISPLAY_MIPI)
+	printk("mach: add device mipi \n");
+	platform_device_register(&mipi_device);
+#endif
+
+#if defined(CONFIG_NEXELL_DISPLAY_HDMI)
+	printk("mach: add device hdmi \n");
+	platform_device_register(&hdmi_device);
+#endif
+
+#if defined(CONFIG_NEXELL_DISPLAY_RESC)
+	printk("mach: add device resolution convertor \n");
+	platform_device_register(&resc_device);
+#endif
+
 #if defined(CONFIG_SERIAL_NEXELL)
     printk("mach: add device serial (array:%d)\n", ARRAY_SIZE(uart_devices));
     platform_add_devices(uart_devices, ARRAY_SIZE(uart_devices));
-#endif
-
-#if defined(CONFIG_NEXELL_SOC_DISP)
-    printk("mach: add device syncgen [%d]\n", ARRAY_SIZE(syncgens));
-    platform_add_devices(syncgens, ARRAY_SIZE(syncgens));
 #endif
 
 #if defined(CONFIG_I2C_NEXELL)
@@ -1281,7 +1282,6 @@ void __init nxp_cpu_devices_register(void)
     printk("mach: add device Real Time Clock  \n");
     platform_device_register(&rtc_plat_device);
 #endif
-
 
 #if defined(CONFIG_HAVE_PWM)
     printk("mach: add device generic pwm (array:%d)\n", ARRAY_SIZE(pwm_devices));

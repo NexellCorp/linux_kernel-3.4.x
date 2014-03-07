@@ -219,9 +219,9 @@ static inline unsigned long _get_clk_hz(int preset)
 }
 
 static int _get_vsync_info(int preset, int device,
-				struct disp_vsync_info *vsync, struct disp_syncgen_param *par)
+				struct disp_vsync_info *vsync, struct disp_syncgen_par *par)
 {
-	nxp_soc_disp_device_get_param(device, (void*)par);
+	nxp_soc_disp_device_get_sync_param(device, (void*)par);
 
     switch (preset) {
     case V4L2_DV_480P59_94:
@@ -323,7 +323,7 @@ static int _set_remote_sync(struct nxp_hdmi *me)
 {
     int ret;
     struct disp_vsync_info vsync;
-    struct disp_syncgen_param param;
+    struct disp_syncgen_par param;
     int source_device;
     struct v4l2_subdev *remote;
 
@@ -356,7 +356,7 @@ static int _set_remote_sync(struct nxp_hdmi *me)
         vsync.interlace = me->cur_conf->mbus_fmt.field == V4L2_FIELD_INTERLACED;
 
         pr_debug("%s: HDMI Source Device 0x%x\n", __func__, source_device);
-        ret = nxp_soc_disp_device_set_param(source_device, (void*)&param);
+        ret = nxp_soc_disp_device_set_sync_param(source_device, (void*)&param);
         if (ret) {
             pr_err("%s: failed to display parameter....\n", __func__);
             return ret;

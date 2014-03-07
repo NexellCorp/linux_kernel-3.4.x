@@ -46,13 +46,15 @@ static int  lvds_set_vsync(struct disp_process_dev *pdev, struct disp_vsync_info
 	return 0;
 }
 
-static void lvds_get_vsync(struct disp_process_dev *pdev, struct disp_vsync_info *psync)
+static int lvds_get_vsync(struct disp_process_dev *pdev, struct disp_vsync_info *psync)
 {
 	printk("%s: %s\n", __func__, dev_to_str(pdev->dev_id));
-	RET_ASSERT(pdev);
+	RET_ASSERT_VAL(pdev, -EINVAL);
 
 	if (psync)
 		memcpy(psync, &pdev->vsync, sizeof(*psync));
+
+	return 0;
 }
 
 static int  lvds_prepare(struct disp_process_dev *pdev)
@@ -90,8 +92,9 @@ static int  lvds_prepare(struct disp_process_dev *pdev)
 	if (plvds)
 		format = plvds->lcd_format;
 
-	DBGOUT("%s: [%d]=%s, in[%d]=%s, format=%d\n",
-		__func__, pdev->dev_id, dev_to_str(pdev->dev_id), input, dev_to_str(input), format);
+	DBGOUT("%s: [%d]=%s, in[%d]=%s, %s\n",
+		__func__, pdev->dev_id, dev_to_str(pdev->dev_id), input, dev_to_str(input),
+		(format==0?"VESA":(format==1?"JEIDA":"LOC")));
 
 	switch (input) {
 	case DISP_DEVICE_SYNCGEN0:	input = 0; break;
@@ -237,10 +240,9 @@ static int  lvds_enable(struct disp_process_dev *pdev, int enable)
 {
 	int clkid = DISP_CLOCK_LVDS;
 	int rstn = NX_LVDS_GetResetNumber(0);
+	DBGOUT("%s %s, %s\n", __func__, dev_to_str(pdev->dev_id), enable?"ON":"OFF");
 
-	PM_DBGOUT("%s %s, %s\n", __func__, dev_to_str(pdev->dev_id), enable?"ON":"OFF");
-
-	if (! enable) {
+	if (!enable) {
   		NX_DISPTOP_CLKGEN_SetClockDivisorEnable(clkid, CFALSE);
   		pdev->status &= ~PROC_STATUS_ENABLE;
 	} else {
@@ -260,6 +262,14 @@ static int  lvds_enable(struct disp_process_dev *pdev, int enable)
 
 static int  lvds_stat_enable(struct disp_process_dev *pdev)
 {
+	int clkid = DISP_CLOCK_LVDS;
+	CBOOL ret = NX_DISPTOP_CLKGEN_GetClockDivisorEnable(clkid);
+
+	if (CTRUE == ret)
+		pdev->status |=  PROC_STATUS_ENABLE;
+	else
+		pdev->status &= ~PROC_STATUS_ENABLE;
+
 	return pdev->status & PROC_STATUS_ENABLE ? 1 : 0;
 }
 
@@ -301,29 +311,30 @@ static void lvds_initialize(void)
 
 static int lvds_probe(struct platform_device *pdev)
 {
-	struct nxp_lvds_plat_data *plat = pdev->dev.platform_data;
-	struct disp_vsync_info *psync;
-	struct disp_syncgen_param *psgen;
+	struct nxp_lcd_plat_data *plat = pdev->dev.platform_data;
 	struct disp_lvds_param *plvds;
+	struct disp_syncgen_par *sgpar;
+	struct disp_vsync_info *psync;
 	int device = DISP_DEVICE_LVDS;
 	int input;
 
 	RET_ASSERT_VAL(plat, -EINVAL);
 	RET_ASSERT_VAL(plat->display_in == DISP_DEVICE_SYNCGEN0 ||
 				   plat->display_in == DISP_DEVICE_SYNCGEN1 ||
+				   plat->display_dev == DISP_DEVICE_LVDS ||
 				   plat->display_in == DISP_DEVICE_RESCONV, -EINVAL);
 	RET_ASSERT_VAL(plat->vsync, -EINVAL);
 
 	plvds = kzalloc(sizeof(*plvds), GFP_KERNEL);
 	RET_ASSERT_VAL(plvds, -EINVAL);
 
-	if (plat->lvds_param) {
-		memcpy(plvds, plat->lvds_param, sizeof(*plvds));
+	if (plat->dev_param) {
+		memcpy(plvds, plat->dev_param, sizeof(*plvds));
 	} else {
 		plvds->lcd_format = LVDS_LCDFORMAT_JEIDA;
 	}
 
-	psgen = plat->syncgen;
+	sgpar = plat->sync_gen;
 	psync = plat->vsync;
 	input = plat->display_in;
 
@@ -331,12 +342,10 @@ static int lvds_probe(struct platform_device *pdev)
 
 	nxp_soc_disp_register_proc_ops(device, &lvds_ops);
 	nxp_soc_disp_device_connect_to(device, input, psync);
-	nxp_soc_disp_device_set_param(device, plvds);
+	nxp_soc_disp_device_set_dev_param(device, plvds);
 
-	if (psgen &&
-		(input == DISP_DEVICE_SYNCGEN0 ||
-		 input == DISP_DEVICE_SYNCGEN1))
-		nxp_soc_disp_device_set_param(input, psgen);
+	if (sgpar && (input == DISP_DEVICE_SYNCGEN0 || input == DISP_DEVICE_SYNCGEN1))
+		nxp_soc_disp_device_set_sync_param(input, sgpar);
 
 	printk("LVDS: [%d]=%s connect to [%d]=%s\n",
 		device, dev_to_str(device), input, dev_to_str(input));

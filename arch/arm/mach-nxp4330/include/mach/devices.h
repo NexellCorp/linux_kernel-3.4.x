@@ -89,34 +89,18 @@ struct nxp_fb_plat_data {
     long            lcd_with_mm;    /* with (mm), default 0 */
     long            lcd_height_mm;  /* height (mm), default 0 */
     int             skip_pan_vsync;
-    struct disp_vsync_info    *vsync;
 };
 
 struct nxp_lcd_plat_data {
-    int display_in;
-    struct disp_vsync_info *vsync;
-    struct disp_syncgen_param *syncgen;
-    struct disp_lcd_param *lcd_param;
+    enum   disp_dev_type 	 display_in;						/* DISP_DEVICE_SYNCGEN0 / DISP_DEVICE_SYNCGEN1 */
+    enum   disp_dev_type	 display_dev;					/* LCD, LVDS, MiPi, HDMI, Refer to display.h */
+    struct disp_vsync_info 	*vsync;
+    struct disp_syncgen_par *sync_gen;
+    union  disp_dev_param 	*dev_param;		/* LCD, LVDS, MiPi, HDMI, Refer to display.h */
 };
 
-struct nxp_lvds_plat_data {
-    int display_in;
-    struct disp_vsync_info *vsync;
-    struct disp_syncgen_param *syncgen;
-    struct disp_lvds_param *lvds_param;
-};
-
-struct nxp_hdmi_plat_data {
-    int display_in;
-    int preset;         /* 0 = 1280 * 720p, 1=1920 * 1080p */
-};
-
-struct nxp_mipi_plat_data {
-    int display_in;
-    struct disp_vsync_info *vsync;
-    struct disp_syncgen_param *syncgen;
-    struct disp_mipi_param *mipi_param;
-};
+extern void nxp_platform_disp_device_data(enum disp_dev_type device,
+				struct disp_vsync_info *vsync, void *dev_par, struct disp_syncgen_par *vsgen);
 
 /*
  *    Sound platform data

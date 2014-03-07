@@ -2460,27 +2460,11 @@ config FB_NEXELL
 	  Nexell processor.
 	  Say Y here to enable support for the display adaptor.
 
-config FB_NEXELL_ION_MEM
-	bool "Allocate framebuffer with ION "
-	depends on FB_NEXELL
-	select ION
-	select ION_NXP
-	default n
-
-config FB_NEXELL_PRI
-	bool "Support primary   frame buffer (/dev/fb0)"
-	depends on FB_NEXELL
-	default y
-
-config FB_NEXELL_SEC
-	bool "Support secondary frame buffer (/dev/fb1)"
-	depends on FB_NEXELL
-	default n
-
 source "drivers/video/omap/Kconfig"
 source "drivers/video/omap2/Kconfig"
 source "drivers/video/exynos/Kconfig"
 source "drivers/video/backlight/Kconfig"
+source "drivers/video/nexell/Kconfig"
 
 if VT
 	source "drivers/video/console/Kconfig"
