@@ -2121,8 +2121,10 @@ static ssize_t active_store(struct device *pdev,
 	return n;
 }
 
-static struct device_attribute active0_attr = __ATTR(active.0, 0666, active_show, active_store);
-static struct device_attribute active1_attr = __ATTR(active.1, 0666, active_show, active_store);
+static struct device_attribute active0_attr =
+	__ATTR(active.0, S_IRUGO | S_IWUSR, active_show, active_store);
+static struct device_attribute active1_attr =
+	__ATTR(active.1, S_IRUGO | S_IWUSR, active_show, active_store);
 
 /*
  * Notify vertical sync timestamp
@@ -2144,8 +2146,10 @@ static ssize_t vsync_show(struct device *pdev,
     return scnprintf(buf, PAGE_SIZE, "%llu\n", ktime_to_ns(info->time_stamp));
 }
 
-static struct device_attribute vblank0_attr = __ATTR(vsync.0, S_IRUGO | S_IWUSR, vsync_show, NULL);
-static struct device_attribute vblank1_attr = __ATTR(vsync.1, S_IRUGO | S_IWUSR, vsync_show, NULL);
+static struct device_attribute vblank0_attr =
+	__ATTR(vsync.0, S_IRUGO | S_IWUSR, vsync_show, NULL);
+static struct device_attribute vblank1_attr =
+	__ATTR(vsync.1, S_IRUGO | S_IWUSR, vsync_show, NULL);
 
 /* sys attribte group */
 static struct attribute *attrs[] = {
