@@ -2122,9 +2122,9 @@ static ssize_t active_store(struct device *pdev,
 }
 
 static struct device_attribute active0_attr =
-	__ATTR(active.0, S_IRUGO | S_IWUSR, active_show, active_store);
+	__ATTR(active.0, 0664, active_show, active_store);
 static struct device_attribute active1_attr =
-	__ATTR(active.1, S_IRUGO | S_IWUSR, active_show, active_store);
+	__ATTR(active.1, 0664, active_show, active_store);
 
 /*
  * Notify vertical sync timestamp
