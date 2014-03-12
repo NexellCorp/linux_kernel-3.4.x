@@ -124,9 +124,10 @@ static void bd_gpio_init(void)
 
 			NX_GPIO_SetPadFunction(index, bit, func);
 			NX_GPIO_SetOutputEnable(index, bit, (out ? CTRUE : CFALSE));
-			NX_GPIO_SetOutputValue(index, bit, (lv  ? CTRUE : CFALSE));
+			NX_GPIO_SetOutputValue(index, bit,  (lv  ? CTRUE : CFALSE));
 			NX_GPIO_SetInterruptMode(index, bit, (lv));
-			NX_GPIO_SetPullUpEnable(index, bit, (plup ? CTRUE : CFALSE));
+
+			NX_GPIO_SetPullMode(index, bit, plup);
 			set_gpio_strenth(index, bit, stren); /* pad strength */
 		}
 
@@ -170,7 +171,7 @@ static void bd_alive_init(void)
 
 		NX_ALIVE_SetOutputEnable(bit, (out ? CTRUE : CFALSE));
 		NX_ALIVE_SetOutputValue (bit, (lv));
-		NX_ALIVE_SetPullUpEnable(bit, (plup ? CTRUE : CFALSE));
+		NX_ALIVE_SetPullUpEnable(bit, (plup & 1 ? CTRUE : CFALSE));
 		/* set interrupt mode */
 		for (detect = 0; 6 > detect; detect++) {
 			if (mode == PAD_GET_MODE(PAD_MODE_INT))

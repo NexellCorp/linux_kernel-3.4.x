@@ -1,6 +1,6 @@
 /*------------------------------------------------------------------------------
  *
- *	Copyright (C) 2005 Nexell Co., Ltd All Rights Reserved
+ *	Copyright (C) 2009 Nexell Co., Ltd All Rights Reserved
  *	Nexell Co. Proprietary & Confidential
  *
  *	NEXELL INFORMS THAT THIS CODE AND INFORMATION IS PROVIDED "AS IS" BASE
@@ -18,8 +18,9 @@
 
 #ifndef __CFG_TYPE_H__
 #define __CFG_TYPE_H__
+
 /*------------------------------------------------------------------------------
-*  GPIO function config
+*  GPIO function config type
 */
 #define PAD_MODE_SHIFT          0
 #define PAD_FUNC_SHIFT          8
@@ -46,13 +47,12 @@ enum {
     PAD_GPIO_ALV    = (5 * 32),
 };
 
-
 /* gpio mode, altfunction, gpio in/out or interrput */
 enum {
     PAD_MODE_ALT    = (0 << PAD_MODE_SHIFT),
     PAD_MODE_IN     = (1 << PAD_MODE_SHIFT),
     PAD_MODE_OUT    = (2 << PAD_MODE_SHIFT),
-	PAD_MODE_INT    = (3 << PAD_MODE_SHIFT),
+    PAD_MODE_INT    = (3 << PAD_MODE_SHIFT),
 };
 
 /* gpio altfunction, refer to NX_GPIO_PADFUNC in nx_gpio.h */
@@ -63,22 +63,22 @@ enum {
     PAD_FUNC_ALT3   = (3 << PAD_FUNC_SHIFT),
 };
 
-/* ouput level or interrupt detect mode,
- * refer to NX_GPIO_INTMODE in nx_gpio.h */
+/* ouput level or interrupt detect mode, refer to NX_GPIO_INTMODE in nx_gpio.h */
 enum {
-	PAD_LEVEL_LOW         = (0 << PAD_LEVEL_SHIFT),     /* if alive, async lowlevel */
+    PAD_LEVEL_LOW         = (0 << PAD_LEVEL_SHIFT),     /* if alive, async lowlevel */
     PAD_LEVEL_HIGH        = (1 << PAD_LEVEL_SHIFT),     /* if alive, async highlevel */
     PAD_LEVEL_FALLINGEDGE = (2 << PAD_LEVEL_SHIFT),     /* if alive, async fallingedge */
     PAD_LEVEL_RISINGEDGE  = (3 << PAD_LEVEL_SHIFT),     /* if alive, async eisingedge */
-	PAD_LEVEL_LOW_SYNC    = (4 << PAD_LEVEL_SHIFT),     /* if gpio , not support */
-	PAD_LEVEL_HIGH_SYNC   = (5 << PAD_LEVEL_SHIFT),     /* if gpio , not support */
+    PAD_LEVEL_LOW_SYNC    = (4 << PAD_LEVEL_SHIFT),     /* if gpio , not support */
+    PAD_LEVEL_HIGH_SYNC   = (5 << PAD_LEVEL_SHIFT),     /* if gpio , not support */
     PAD_LEVEL_BOTHEDGE    = (4 << PAD_LEVEL_SHIFT),     /* if alive, not support */
     PAD_LEVEL_ALT         = (6 << PAD_LEVEL_SHIFT),     /* if pad function is alt, not set */
 };
 
 enum {
-    PAD_PULLUP_OFF  = (0 << PAD_PULLUP_SHIFT),
-    PAD_PULLUP_ON   = (1 << PAD_PULLUP_SHIFT),
+    PAD_PULL_DN     = (0 << PAD_PULLUP_SHIFT),          /* Do not support Alive-GPIO */
+    PAD_PULL_UP     = (1 << PAD_PULLUP_SHIFT),
+    PAD_PULL_OFF    = (2 << PAD_PULLUP_SHIFT),
 };
 
 enum {

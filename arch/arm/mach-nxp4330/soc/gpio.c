@@ -77,6 +77,8 @@ void nxp_soc_gpio_set_io_func(unsigned int io, unsigned int func)
 		printk("fail, soc gpio io:%d, group:%d (%s)\n", io, grp, __func__);
 		break;
 	};
+
+	return;
 }
 EXPORT_SYMBOL(nxp_soc_gpio_set_io_func);
 
@@ -89,13 +91,11 @@ EXPORT_SYMBOL(nxp_soc_gpio_set_io_func);
 int nxp_soc_gpio_get_altnum(unsigned int io)
 {
 	unsigned int grp = PAD_GET_GROUP(io);
-    unsigned int bit = PAD_GET_BITNO(io);
+	unsigned int bit = PAD_GET_BITNO(io);
 
-    return gpio_alt_no[grp][bit];
+	return gpio_alt_no[grp][bit];
 }
 EXPORT_SYMBOL_GPL(nxp_soc_gpio_get_altnum);
-
-
 
 /*------------------------------------------------------------------------------
  * 	Description	: get gpio pad function
@@ -172,6 +172,8 @@ void nxp_soc_gpio_set_io_dir(unsigned int io, int out)
 		printk("fail, soc gpio io:%d, group:%d (%s)\n", io, grp, __func__);
 		break;
 	};
+
+	return;
 }
 EXPORT_SYMBOL(nxp_soc_gpio_set_io_dir);
 
@@ -180,7 +182,7 @@ EXPORT_SYMBOL(nxp_soc_gpio_set_io_dir);
  *	In[io]		: gpio pad number, 32*n + bit
  * 				: (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, ALIVE:5, bit= 0 ~ 32)
  *	Return 		: -1 = invalid gpio.
- *		 		:  0 = gpio's input mode.
+ *				:  0 = gpio's input mode.
  *				:  1 = gpio's output mode.
  */
 int nxp_soc_gpio_get_io_dir(unsigned int io)
@@ -217,16 +219,16 @@ int nxp_soc_gpio_get_io_dir(unsigned int io)
 EXPORT_SYMBOL(nxp_soc_gpio_get_io_dir);
 
 /*------------------------------------------------------------------------------
- * 	Description	: set pull up of gpio pin
+ * 	Description	: set pull enb of gpio pin
  *	In[io]		: gpio pad number, 32*n + bit
- * 				: (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, ALIVE:5, bit= 0 ~ 32)
- *	In[on]		: '1' is pull up, '0' is not pull up(floting)
+ * 				: (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, bit= 0 ~ 32)
+ *	In[on]		: '1' is pull enable, '0' is pull disable
  *	Return 		: none.
  */
-void nxp_soc_gpio_set_io_pullup(unsigned int io, int on)
+void nxp_soc_gpio_set_io_pull_enb(unsigned int io, int on)
 {
 	unsigned int grp = PAD_GET_GROUP(io);
-    unsigned int bit = PAD_GET_BITNO(io);
+	unsigned int bit = PAD_GET_BITNO(io);
 	DBGOUT("%s (%d.%02d)\n", __func__, grp, bit);
 
 	switch (io & ~(32-1)) {
@@ -236,13 +238,7 @@ void nxp_soc_gpio_set_io_pullup(unsigned int io, int on)
 	case PAD_GPIO_D:
 	case PAD_GPIO_E:
 		IO_LOCK(grp);
-		NX_GPIO_SetPullUpEnable(grp, bit, on ? CTRUE : CFALSE);
-		IO_UNLOCK(grp);
-		break;
-
-	case PAD_GPIO_ALV:
-		IO_LOCK(grp);
-		NX_ALIVE_SetPullUpEnable(bit, on ? CTRUE : CFALSE);
+		NX_GPIO_SetPullEnable(grp, bit, on ? CTRUE : CFALSE);
 		IO_UNLOCK(grp);
 		break;
 
@@ -250,18 +246,95 @@ void nxp_soc_gpio_set_io_pullup(unsigned int io, int on)
 		printk("fail, soc gpio io:%d, group:%d (%s)\n", io, grp, __func__);
 		break;
 	};
+
+	return;
 }
-EXPORT_SYMBOL(nxp_soc_gpio_set_io_pullup);
+EXPORT_SYMBOL(nxp_soc_gpio_set_io_pull_enb);
 
 /*------------------------------------------------------------------------------
- * 	Description	: get pull up status
+ * 	Description	: get pull enb of gpio pin
+ *	In[io]		: gpio pad number, 32*n + bit
+ * 				: (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, bit= 0 ~ 32)
+ *	Return 		: -1 = invalid gpio.
+ *		 		:  0 = pull disable.
+ *				:  1 = pull enable.
+ */
+int nxp_soc_gpio_get_io_pull_enb(unsigned int io)
+{
+	unsigned int grp = PAD_GET_GROUP(io);
+	unsigned int bit = PAD_GET_BITNO(io);
+	int enb  = -1;
+	DBGOUT("%s (%d.%02d)\n", __func__, grp, bit);
+
+	switch (io & ~(32-1)) {
+	case PAD_GPIO_A:
+	case PAD_GPIO_B:
+	case PAD_GPIO_C:
+	case PAD_GPIO_D:
+	case PAD_GPIO_E:
+		IO_LOCK(grp);
+		enb = NX_GPIO_GetPullEnable(grp, bit) ? 1 : 0;
+		IO_UNLOCK(grp);
+		break;
+
+	default:
+		printk("fail, soc gpio io:%d, group:%d (%s)\n", io, grp, __func__);
+		break;
+	};
+
+	return enb;
+}
+EXPORT_SYMBOL(nxp_soc_gpio_get_io_pull_enb);
+
+/*------------------------------------------------------------------------------
+ * 	Description	: set pull select of gpio pin
+ *	In[io]		: gpio pad number, 32*n + bit
+ * 				: (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, ALIVE:5, bit= 0 ~ 32)
+ *	In[on]		: '1' is pull up, '0' is pull down
+ *	Return 		: none.
+ */
+void nxp_soc_gpio_set_io_pull_sel(unsigned int io, int up)
+{
+	unsigned int grp = PAD_GET_GROUP(io);
+	unsigned int bit = PAD_GET_BITNO(io);
+	DBGOUT("%s (%d.%02d)\n", __func__, grp, bit);
+
+	switch (io & ~(32-1)) {
+	case PAD_GPIO_A:
+	case PAD_GPIO_B:
+	case PAD_GPIO_C:
+	case PAD_GPIO_D:
+	case PAD_GPIO_E:
+		IO_LOCK(grp);
+		NX_GPIO_SetPullEnable(grp, bit, CTRUE);
+		NX_GPIO_SetPullSelect(grp, bit, up ? CTRUE : CFALSE);
+		IO_UNLOCK(grp);
+		break;
+
+	case PAD_GPIO_ALV:
+		IO_LOCK(grp);
+		NX_ALIVE_SetPullUpEnable(bit, up ? CTRUE : CFALSE);
+		IO_UNLOCK(grp);
+		break;
+
+	default:
+		printk("fail, soc gpio io:%d, group:%d (%s)\n", io, grp, __func__);
+		break;
+	};
+
+	return;
+}
+EXPORT_SYMBOL(nxp_soc_gpio_set_io_pull_sel);
+
+/*------------------------------------------------------------------------------
+ * 	Description	: get pull select status
  *	In[io]		: gpio pad number, 32*n + bit
  * 				: (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, ALIVE:5, bit= 0 ~ 32)
  *	Return 		: -1 = invalid gpio.
- *		 		:  0 = pullup off.
- *				:  1 = pullup on.
+ *		 		:  0 = pull down.
+ *				:  1 = pull up.
  */
-int nxp_soc_gpio_get_io_pullup(unsigned int io)
+int nxp_soc_gpio_get_io_pull_sel(unsigned int io)
 {
 	unsigned int grp = PAD_GET_GROUP(io);
 	unsigned int bit = PAD_GET_BITNO(io);
@@ -275,7 +348,7 @@ int nxp_soc_gpio_get_io_pullup(unsigned int io)
 	case PAD_GPIO_D:
 	case PAD_GPIO_E:
 		IO_LOCK(grp);
-		up = NX_GPIO_GetPullUpEnable(grp, bit) ? 1 : 0;
+		up = NX_GPIO_GetPullSelect(grp, bit) ? 1 : 0;
 		IO_UNLOCK(grp);
 		break;
 
@@ -292,7 +365,7 @@ int nxp_soc_gpio_get_io_pullup(unsigned int io)
 
 	return up;
 }
-EXPORT_SYMBOL(nxp_soc_gpio_get_io_pullup);
+EXPORT_SYMBOL(nxp_soc_gpio_get_io_pull_sel);
 
 /*------------------------------------------------------------------------------
  * 	Description	: set gpio output level
@@ -328,6 +401,8 @@ void nxp_soc_gpio_set_out_value(unsigned int io, int high)
 		printk("fail, soc gpio io:%d, group:%d (%s)\n", io, grp, __func__);
 		break;
 	};
+
+	return;
 }
 EXPORT_SYMBOL(nxp_soc_gpio_set_out_value);
 
@@ -448,6 +523,8 @@ void nxp_soc_gpio_set_int_enable(unsigned int io, int on)
 		printk("fail, soc gpio io:%d, group:%d (%s)\n", io, grp, __func__);
 		break;
 	};
+
+	return;
 }
 EXPORT_SYMBOL(nxp_soc_gpio_set_int_enable);
 
@@ -543,6 +620,8 @@ void nxp_soc_gpio_set_int_mode(unsigned int io, unsigned int mode)
 		printk("fail, soc gpio io:%d, group:%d (%s)\n", io, grp, __func__);
 		break;
 	};
+
+	return;
 }
 EXPORT_SYMBOL(nxp_soc_gpio_set_int_mode);
 
@@ -650,7 +729,7 @@ EXPORT_SYMBOL(nxp_soc_gpio_get_int_pend);
 void nxp_soc_gpio_clr_int_pend(unsigned int io)
 {
 	unsigned int grp = PAD_GET_GROUP(io);
-    unsigned int bit = PAD_GET_BITNO(io);
+	unsigned int bit = PAD_GET_BITNO(io);
 	DBGOUT("%s (%d.%02d)\n", __func__, grp, bit);
 
 	switch (io & ~(32-1)) {
@@ -676,6 +755,8 @@ void nxp_soc_gpio_clr_int_pend(unsigned int io)
 		printk("fail, soc gpio io:%d, group:%d (%s)\n", io, grp, __func__);
 		break;
 	};
+
+	return;
 }
 EXPORT_SYMBOL(nxp_soc_gpio_clr_int_pend);
 
@@ -687,7 +768,7 @@ EXPORT_SYMBOL(nxp_soc_gpio_clr_int_pend);
  */
 void nxp_soc_alive_set_det_enable(unsigned int io, int on)
 {
-    unsigned int bit = PAD_GET_BITNO(io);
+	unsigned int bit = PAD_GET_BITNO(io);
 	DBGOUT("%s (%d)\n", __func__, bit);
 
 	IO_LOCK(ALIVE_INDEX);
@@ -696,6 +777,8 @@ void nxp_soc_alive_set_det_enable(unsigned int io, int on)
 	NX_ALIVE_SetDetectEnable(bit, on ? CTRUE : CFALSE);
 
 	IO_UNLOCK(ALIVE_INDEX);
+
+	return;
 }
 EXPORT_SYMBOL_GPL(nxp_soc_alive_set_det_enable);
 
@@ -707,7 +790,7 @@ EXPORT_SYMBOL_GPL(nxp_soc_alive_set_det_enable);
  */
 int nxp_soc_alive_get_det_enable(unsigned int io)
 {
-    unsigned int bit = PAD_GET_BITNO(io);
+	unsigned int bit = PAD_GET_BITNO(io);
 	int mod = 0;
 	DBGOUT("%s (%d)\n", __func__, bit);
 
@@ -736,7 +819,7 @@ EXPORT_SYMBOL_GPL(nxp_soc_alive_get_det_enable);
  */
 void nxp_soc_alive_set_det_mode(unsigned int io, unsigned int mode, int on)
 {
-    unsigned int bit = PAD_GET_BITNO(io);
+	unsigned int bit = PAD_GET_BITNO(io);
 	DBGOUT("%s (%d)\n", __func__, bit);
 
 	IO_LOCK(ALIVE_INDEX);
@@ -744,6 +827,8 @@ void nxp_soc_alive_set_det_mode(unsigned int io, unsigned int mode, int on)
 	NX_ALIVE_SetDetectMode(mode, bit, on ? CTRUE : CFALSE);
 
 	IO_UNLOCK(ALIVE_INDEX);
+
+	return;
 }
 EXPORT_SYMBOL_GPL(nxp_soc_alive_set_det_mode);
 
@@ -755,7 +840,7 @@ EXPORT_SYMBOL_GPL(nxp_soc_alive_set_det_mode);
  */
 int nxp_soc_alive_get_det_mode(unsigned int io, unsigned int mode)
 {
-    unsigned int bit = PAD_GET_BITNO(io);
+	unsigned int bit = PAD_GET_BITNO(io);
 	int mod = 0;
 	DBGOUT("%s (%d)\n", __func__, bit);
 
@@ -777,7 +862,7 @@ EXPORT_SYMBOL_GPL(nxp_soc_alive_get_det_mode);
  */
 int nxp_soc_alive_get_int_pend(unsigned int io)
 {
-    unsigned int bit = PAD_GET_BITNO(io);
+	unsigned int bit = PAD_GET_BITNO(io);
 	int pend = -1;
 	DBGOUT("%s (%d)\n", __func__, bit);
 
@@ -798,7 +883,7 @@ EXPORT_SYMBOL_GPL(nxp_soc_alive_get_int_pend);
  */
 void nxp_soc_alive_clr_int_pend(unsigned int io)
 {
-    unsigned int bit = PAD_GET_BITNO(io);
+	unsigned int bit = PAD_GET_BITNO(io);
 	DBGOUT("%s (%d)\n", __func__, bit);
 
 	IO_LOCK(ALIVE_INDEX);
@@ -806,6 +891,8 @@ void nxp_soc_alive_clr_int_pend(unsigned int io)
 	NX_ALIVE_ClearInterruptPending(bit);
 
 	IO_UNLOCK(ALIVE_INDEX);
+
+	return;
 }
 EXPORT_SYMBOL_GPL(nxp_soc_alive_clr_int_pend);
 

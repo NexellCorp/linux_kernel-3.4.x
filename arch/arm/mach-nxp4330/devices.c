@@ -1071,7 +1071,7 @@ static struct resource otg_resources[] = {
 static u64 otg_dmamask = DMA_BIT_MASK(32);
 
 static struct platform_device otg_plat_device = {
-    .name   = "dwc3-gadget",
+    .name   = "nxp-dwcotg",
     .id     = -1,
     .dev    = {
         .dma_mask = &otg_dmamask,
