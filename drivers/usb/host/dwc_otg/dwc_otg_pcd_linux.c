@@ -867,7 +867,7 @@ static int dwc_udc_pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct gadget_wrapper *d;
 
-	DWC_DEBUGPL(DBG_PCDV, "++ %s\n", __func__);
+	DWC_DEBUGPL(DBG_PCDV, "++ %s, is_on = %d\n", __func__, is_on);
 
 	if (gadget == 0) {
 		return -ENODEV;

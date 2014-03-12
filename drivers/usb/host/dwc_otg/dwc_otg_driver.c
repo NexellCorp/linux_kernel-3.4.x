@@ -715,7 +715,7 @@ static struct platform_device *s_pdev = NULL;
 extern void dwc_udc_resume(void);
 extern void dwc_udc_suspend(void);
 
-#if 1   //ndef CONFIG_SUSPEND_IDLE
+#if 0	//defined(CONFIG_USB_G_ANDROID)
 static struct notifier_block s_pm_notify;
 int dwc_otg_hcd_pm_notify(struct notifier_block *notifier_block,
         unsigned long mode, void *unused)
@@ -753,10 +753,10 @@ static int dwc_otg_driver_suspend(struct platform_device *_dev, pm_message_t sta
 {
     PM_DBGOUT("+%s\n", __func__);
 
-    if (s_pdev) {
-        msleep(1);
-        dwc_otg_driver_remove(s_pdev);
-    }
+#ifndef CONFIG_SUSPEND_IDLE
+    otg_clk_disable();
+    otg_phy_off();
+#endif
 
     PM_DBGOUT("-%s\n", __func__);
 
@@ -767,13 +767,11 @@ static int dwc_otg_driver_resume(struct platform_device *_dev)
 {
     PM_DBGOUT("+%s\n", __func__);
 
-    if (s_pdev) {
-//        unsigned int otg_mode = get_otg_mode();
-        dwc_otg_driver_probe(s_pdev);
-        mdelay(10);
-        dwc_udc_resume();
-//        set_otg_mode(otg_mode, 1);
-    }
+#ifndef CONFIG_SUSPEND_IDLE
+    otg_phy_init();
+    otg_clk_enable();
+#endif
+
 
     PM_DBGOUT("-%s\n", __func__);
 
@@ -975,7 +973,7 @@ static int dwc_otg_driver_probe(
     if (!s_pdev)
         s_pdev = _dev;
 
-#if 1   //ndef CONFIG_SUSPEND_IDLE
+#if 0   //ndef CONFIG_SUSPEND_IDLE
     if (!s_pm_notify.notifier_call) {
         s_pm_notify.notifier_call = dwc_otg_hcd_pm_notify;
         register_pm_notifier(&s_pm_notify);
@@ -1009,7 +1007,7 @@ static struct platform_device_id platform_ids[] = {
     // psw0523 add
 #if defined(CONFIG_ARCH_NXP3200) || defined(CONFIG_ARCH_NXP4330)
     {
-        .name = "dwc3-gadget",
+        .name = "nxp-dwcotg",
         .driver_data = (kernel_ulong_t) 0xdeadbeef,
     },
 #endif
