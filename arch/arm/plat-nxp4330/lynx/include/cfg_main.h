@@ -113,6 +113,12 @@
 #define CFG_DISP_LCD_MPY_TYPE						0
 
 /*------------------------------------------------------------------------------
+ * 	LVDS
+ */
+#define CFG_DISP_LVDS_LCD_FORMAT             	LVDS_LCDFORMAT_JEIDA
+
+
+/*------------------------------------------------------------------------------
  * 	PWM
  */
 #define CFG_LCD_PRI_PWM_CH						0
