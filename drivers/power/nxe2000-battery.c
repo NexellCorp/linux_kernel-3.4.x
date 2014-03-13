@@ -4499,6 +4499,8 @@ static int nxe2000_battery_suspend(struct device *dev)
 	bool is_charging = true;
 	int displayed_soc_temp;
 
+	PM_DBGOUT("+ %s\n", __func__);
+
     nxe2000_power_suspend_status	= 1;
     nxe2000_power_resume_status     = 0;
 
@@ -4659,6 +4661,12 @@ static int nxe2000_battery_suspend(struct device *dev)
 	nxe2000_clr_bits(info->dev->parent, 0x90, 0x10);    // GPIO4 : Input
 #endif
 
+	ret = nxe2000_write(info->dev->parent, FG_CTRL_REG, 0x41);
+	if (ret < 0)
+		ret = nxe2000_write(info->dev->parent, FG_CTRL_REG, 0x41);
+
+	PM_DBGOUT("- %s\n", __func__);
+
 	return 0;
 }
 
@@ -4673,6 +4681,8 @@ static int nxe2000_battery_resume(struct device *dev)
 	bool is_jeita_updated;
 	int i;
 
+	PM_DBGOUT("+ %s\n", __func__);
+
 	nxe2000_power_resume_status	= 1;
 	nxe2000_power_lowbat	= 2;
 
@@ -4683,6 +4693,8 @@ static int nxe2000_battery_resume(struct device *dev)
 #else
 	nxe2000_set_bits(info->dev->parent, 0x90, 0x10);    // GPIO4 : Output
 #endif
+
+	nxe2000_init_battery(info);
 
 #ifdef ENABLE_MASKING_INTERRUPT_IN_SLEEP
 	nxe2000_set_bits(dev->parent, NXE2000_INTC_INTEN, CHG_INT);
@@ -4833,6 +4845,7 @@ static int nxe2000_battery_resume(struct device *dev)
 	info->chg_ctr			= 0x03;
 	queue_work(info->workqueue, &info->irq_work);
 
+	PM_DBGOUT("- %s\n", __func__);
 
 	return 0;
 }
