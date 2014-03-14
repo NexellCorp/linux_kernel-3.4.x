@@ -77,8 +77,16 @@ static void __init cpu_fixup(struct tag *tags, char **cmdline, struct meminfo *m
 #endif
 }
 
+#if	defined(CONFIG_SMP)
+#define	LIVE_NR_CPUS 	NR_CPUS
+#else
+#define	LIVE_NR_CPUS 	4
+#endif
+
 static void __init cpu_map_io(void)
 {
+	int cores = LIVE_NR_CPUS;
+
 	/*
 	 * check memory map
 	 */
@@ -100,10 +108,18 @@ static void __init cpu_map_io(void)
 	iotable_init(cpu_iomap_desc, ARRAY_SIZE(cpu_iomap_desc));
 
 #if defined(CFG_MEM_PHY_DMAZONE_SIZE)
-	printk(KERN_INFO "CPU : DMA Zone Size =%2dM\n", CFG_MEM_PHY_DMAZONE_SIZE>>20);
+	printk(KERN_INFO "CPU : DMA Zone Size =%2dM, CORE %d\n", CFG_MEM_PHY_DMAZONE_SIZE>>20, cores);
 	init_consistent_dma_size(CFG_MEM_PHY_DMAZONE_SIZE);
 #else
-	printk(KERN_INFO "CPU : DMA Zone Size =%2dM\n", SZ_2M>>20);
+	printk(KERN_INFO "CPU : DMA Zone Size =%2dM, CORE %d\n", SZ_2M>>20, cores);
+#endif
+
+#if defined (CONFIG_SMP)
+//	for ( ; (4 - cores) > 1; cores++)
+//		nxp_cpu_core_shutdown(4-cores);
+#else
+//	for ( ; cores > 1; cores--)
+//		nxp_cpu_core_shutdown(cores-1);
 #endif
 
 	nxp_cpu_base_init();

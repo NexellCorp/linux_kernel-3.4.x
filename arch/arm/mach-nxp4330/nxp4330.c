@@ -78,21 +78,6 @@ static void cpu_bus_init(void)
 	NX_MCUS_OpenModule();
 
 	/*
-	 * NAND Bus config
-	 */
-#if 0
-	NX_MCUS_SetNANDBUSConfig
-	(
-		0, /* NF */
-		0x0, //CFG_SYS_NAND_TACS,		// tACS  ( 0 ~ 3 )
-		0x0, //CFG_SYS_NAND_TCAH,		// tCAH  ( 0 ~ 3 )
-		0xf, //CFG_SYS_NAND_TCOS,		// tCOS  ( 0 ~ 3 )
-		0xf, //CFG_SYS_NAND_TCOH,		// tCOH  ( 0 ~ 3 )
-		0xf  //CFG_SYS_NAND_TACC		// tACC  ( 1 ~ 16)
-	);
-#endif
-
-	/*
 	 * MCU-Static config: Static Bus #0 ~ #1
 	 */
 	#define STATIC_BUS_CONFIGUTATION( _n_ )								\
@@ -115,13 +100,65 @@ static void cpu_bus_init(void)
 	STATIC_BUS_CONFIGUTATION( 1);
 }
 
-unsigned int cpu_vers_no = -1;
+/*
+ * 	cpu core shutdown/reset
+ */
+void (*nxp_board_shutdown)(void) = NULL;
+void (*nxp_board_reset)(char str, const char *cmd) = NULL;
+
+static unsigned int core_power[][2] = {
+	[0] = { TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CLAMPCPU0,
+		    TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CPU0PWRDOWN },
+	[1] = { TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CLAMPCPU1,
+		    TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CPU1PWRDOWN },
+	[2] = { TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CLAMPCPU2,
+		    TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CPU2PWRDOWN },
+	[3] = { TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CLAMPCPU3,
+		    TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CPU3PWRDOWN },
+};
+
+void nxp_cpu_core_shutdown(int core)
+{
+	printk(KERN_INFO "cpu.%d shutdown ...\n", core);
+	NX_TIEOFF_Set(core_power[core][0], 1);
+	NX_TIEOFF_Set(core_power[core][1], 1);
+}
+
+void nxp_cpu_shutdown(void)
+{
+	int cpu, cur = smp_processor_id();
+
+	if (nxp_board_shutdown)
+		nxp_board_shutdown();
+
+	for_each_present_cpu(cpu) {
+		if (cpu == cur)
+			continue;
+		nxp_cpu_core_shutdown(cpu);
+	}
+
+	printk(KERN_INFO "cpu.%d shutdown ...\n", cur);
+	NX_ALIVE_SetVDDPWRON(CFALSE, CFALSE);	/* Core power down */
+}
+
+void nxp_cpu_reset(char str, const char *cmd)
+{
+	printk(KERN_INFO "system reset: %s ...\n", cmd);
+
+	if (nxp_board_reset)
+		nxp_board_reset(str, cmd);
+
+    NX_CLKPWR_SetSoftwareResetEnable(CTRUE);
+    NX_CLKPWR_DoSoftwareReset();
+}
 
 /*
  * Notify cpu version
  *
  * /sys/devices/platform/cpu/version
  */
+unsigned int cpu_vers_no = -1;
+
 static ssize_t version_show(struct device *pdev,
 			struct device_attribute *attr, char *buf)
 {
