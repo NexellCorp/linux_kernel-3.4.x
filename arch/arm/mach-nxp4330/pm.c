@@ -418,18 +418,18 @@ static void suspend_gpio(suspend_state_t stat)
 			gpio->mode[2] = readl(base+0x28);
 			gpio->mask = readl(base+0x10);
 
-			for (j = 0; j < 10; j++) 
+			for (j = 0; j < 10; j++)
 				gpio->reg_val[j] = readl(base+0x40+(j<<2));
-			
+
 
 			writel((-1UL), (base+0x14));	/* clear pend */
 		}
 	} else {
 		for (i = 0; size > i; i++, gpio++, base += 0x1000) {
 
-			for (j = 0; j < 10; j++) 
+			for (j = 0; j < 10; j++)
 				writel(gpio->reg_val[j], (base+0x40+(j<<2)));
-			
+
 			writel(gpio->output, (base+0x04));
 			writel(gpio->data  , (base+0x00));
 			writel(gpio->alfn[0],(base+0x20));
@@ -652,57 +652,16 @@ static int __init suspend_ops_init(void)
 core_initcall(suspend_ops_init);
 
 /*
- * 	cpu shutdown, reset, board suspend fn
+ * 	cpu board suspend fn
  */
 void nxp_board_suspend_register(struct board_suspend_ops *ops)
 {
     board_suspend = ops;
 }
 
-void (*nxp_board_shutdown)(void) = NULL;
-void (*nxp_board_reset)(char str, const char *cmd) = NULL;
-
-static unsigned int core_power[][2] = {
-	[0] = { TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CLAMPCPU0,
-		    TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CPU0PWRDOWN },
-	[1] = { TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CLAMPCPU1,
-		    TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CPU1PWRDOWN },
-	[2] = { TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CLAMPCPU2,
-		    TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CPU2PWRDOWN },
-	[3] = { TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CLAMPCPU3,
-		    TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CPU3PWRDOWN },
-};
-
-void nxp_cpu_shutdown(void)
-{
-	int cpu, cur = smp_processor_id();
-
-	if (nxp_board_shutdown)
-		nxp_board_shutdown();
-
-	for_each_present_cpu(cpu) {
-		if (cpu == cur)
-			continue;
-		printk(KERN_INFO "cpu.%d shutdown ...\n", cpu);
-		NX_TIEOFF_Set(core_power[cpu][0], 1);
-		NX_TIEOFF_Set(core_power[cpu][1], 1);
-	}
-
-	printk(KERN_INFO "cpu.%d shutdown ...\n", cur);
-	NX_ALIVE_SetVDDPWRON(CFALSE, CFALSE);	/* Core power down */
-}
-
-void nxp_cpu_reset(char str, const char *cmd)
-{
-	printk(KERN_INFO "system reset: %s ...\n", cmd);
-
-	if (nxp_board_reset)
-		nxp_board_reset(str, cmd);
-
-    NX_CLKPWR_SetSoftwareResetEnable(CTRUE);
-    NX_CLKPWR_DoSoftwareReset();
-}
-
+/*
+ * 	cpu wakeup source
+ */
 unsigned int nxp_cpu_wake_event_devs(void)
 {
 	return __wake_event_bits;
