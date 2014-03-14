@@ -4661,9 +4661,9 @@ static int nxe2000_battery_suspend(struct device *dev)
 	nxe2000_clr_bits(info->dev->parent, 0x90, 0x10);    // GPIO4 : Input
 #endif
 
-	ret = nxe2000_write(info->dev->parent, FG_CTRL_REG, 0x41);
+	ret = nxe2000_write(info->dev->parent, FG_CTRL_REG, 0x40);
 	if (ret < 0)
-		ret = nxe2000_write(info->dev->parent, FG_CTRL_REG, 0x41);
+		ret = nxe2000_write(info->dev->parent, FG_CTRL_REG, 0x40);
 
 	PM_DBGOUT("- %s\n", __func__);
 
