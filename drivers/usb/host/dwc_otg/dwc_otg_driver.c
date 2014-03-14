@@ -712,33 +712,69 @@ extern unsigned int get_otg_mode(void);
 //static int dwc_otg_driver_remove(struct platform_device *_dev);
 static int dwc_otg_driver_probe(struct platform_device *_dev);
 static struct platform_device *s_pdev = NULL;
+static struct dwc_otg_device_t *s_dwc_otg_device = NULL;
 extern void dwc_udc_resume(void);
 extern void dwc_udc_suspend(void);
 
-#if 0	//defined(CONFIG_USB_G_ANDROID)
+#ifndef CONFIG_SUSPEND_IDLE
 static struct notifier_block s_pm_notify;
 int dwc_otg_hcd_pm_notify(struct notifier_block *notifier_block,
         unsigned long mode, void *unused)
 {
-	PM_DBGOUT("++ %s: %d mode\n", __func__, mode);
+    PM_DBGOUT("++ %s: %d mode\n", __func__, mode);
 
     switch(mode) {
     case PM_SUSPEND_PREPARE:
         PM_DBGOUT("%s: prepare suspend\n", __func__);
-        if (s_pdev) {
-            dwc_udc_suspend();
+
+        if (s_dwc_otg_device) {
+            struct platform_device *_dev = s_pdev;
+            dwc_otg_device_t *dwc_otg_device = s_dwc_otg_device;
+
+             /*
+             * Disable the global interrupt until all the interrupt
+             * handlers are installed.
+             */
+            dev_dbg(&_dev->dev, "Calling disable_global_interrupts\n");
+            dwc_otg_disable_global_interrupts(dwc_otg_device->core_if);
         }
+
+        otg_clk_disable();
+        otg_phy_off();
+
         break;
 
     case PM_POST_SUSPEND:
         PM_DBGOUT("%s: post suspend\n", __func__);
 #if 0
-        if (s_pdev) {
-            unsigned int otg_mode = get_otg_mode();
-//            set_otg_mode(otg_mode, 1);
-            dwc_otg_driver_probe(s_pdev);
-            dwc_udc_resume();
-            set_otg_mode(otg_mode, 1);
+        otg_phy_init();
+        otg_clk_enable();
+
+        if (s_dwc_otg_device) {
+            struct platform_device *_dev = s_pdev;
+            dwc_otg_device_t *dwc_otg_device = s_dwc_otg_device;
+
+            /*
+             * Disable the global interrupt until all the interrupt
+             * handlers are installed.
+             */
+            dev_dbg(&_dev->dev, "Calling disable_global_interrupts\n");
+            dwc_otg_disable_global_interrupts(dwc_otg_device->core_if);
+
+            /*
+             * Initialize the DWC_otg core.
+             */
+            dev_dbg(&_dev->dev, "Calling dwc_otg_core_init\n");
+            dwc_otg_core_init(dwc_otg_device->core_if);
+
+            /*
+             * Enable the global interrupt after all the interrupt
+             * handlers are installed if there is no ADP support else 
+             * perform initial actions required for Internal ADP logic.
+             */
+            dev_dbg(&_dev->dev, "Calling enable_global_interrupts\n");
+            dwc_otg_enable_global_interrupts(dwc_otg_device->core_if);
+            dev_dbg(&_dev->dev, "Done\n");
         }
 #endif
         break;
@@ -753,11 +789,6 @@ static int dwc_otg_driver_suspend(struct platform_device *_dev, pm_message_t sta
 {
     PM_DBGOUT("+%s\n", __func__);
 
-#ifndef CONFIG_SUSPEND_IDLE
-    otg_clk_disable();
-    otg_phy_off();
-#endif
-
     PM_DBGOUT("-%s\n", __func__);
 
     return 0;
@@ -767,11 +798,37 @@ static int dwc_otg_driver_resume(struct platform_device *_dev)
 {
     PM_DBGOUT("+%s\n", __func__);
 
-#ifndef CONFIG_SUSPEND_IDLE
-    otg_phy_init();
-    otg_clk_enable();
-#endif
+#if 1
+        otg_phy_init();
+        otg_clk_enable();
 
+        if (s_dwc_otg_device) {
+            struct platform_device *_dev = s_pdev;
+            dwc_otg_device_t *dwc_otg_device = s_dwc_otg_device;
+
+            /*
+             * Disable the global interrupt until all the interrupt
+             * handlers are installed.
+             */
+            dev_dbg(&_dev->dev, "Calling disable_global_interrupts\n");
+            dwc_otg_disable_global_interrupts(dwc_otg_device->core_if);
+
+            /*
+             * Initialize the DWC_otg core.
+             */
+            dev_dbg(&_dev->dev, "Calling dwc_otg_core_init\n");
+            dwc_otg_core_init(dwc_otg_device->core_if);
+
+            /*
+             * Enable the global interrupt after all the interrupt
+             * handlers are installed if there is no ADP support else 
+             * perform initial actions required for Internal ADP logic.
+             */
+            dev_dbg(&_dev->dev, "Calling enable_global_interrupts\n");
+            dwc_otg_enable_global_interrupts(dwc_otg_device->core_if);
+            dev_dbg(&_dev->dev, "Done\n");
+        }
+#endif
 
     PM_DBGOUT("-%s\n", __func__);
 
@@ -970,15 +1027,18 @@ static int dwc_otg_driver_probe(
 
     // psw0523 add for pm
 #if defined(CONFIG_PM) && defined(CONFIG_ARCH_NXP4330)
+    if (!s_dwc_otg_device)
+        s_dwc_otg_device = dwc_otg_device;
+
     if (!s_pdev)
         s_pdev = _dev;
 
-#if 0   //ndef CONFIG_SUSPEND_IDLE
+#ifndef CONFIG_SUSPEND_IDLE
     if (!s_pm_notify.notifier_call) {
         s_pm_notify.notifier_call = dwc_otg_hcd_pm_notify;
         register_pm_notifier(&s_pm_notify);
     }
-#endif  /* CONFIG_USB_G_ANDROID */
+#endif  /* CONFIG_SUSPEND_IDLE */
 #endif
 
     return 0;
@@ -1050,6 +1110,7 @@ static int __init dwc_otg_driver_init(void)
 
 #if defined(CONFIG_ARCH_NXP3200) || defined(CONFIG_ARCH_NXP4330)
 #ifdef CONFIG_PM
+    s_dwc_otg_device = NULL;
     s_pdev = NULL;
 #endif
 #endif
@@ -1087,6 +1148,7 @@ static void __exit dwc_otg_driver_cleanup(void)
 
 #if defined(CONFIG_ARCH_NXP3200) || defined(CONFIG_ARCH_NXP4330)
 #ifdef CONFIG_PM
+    s_dwc_otg_device = NULL;
     s_pdev = NULL;
 #endif
 #endif
