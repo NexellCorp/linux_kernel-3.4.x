@@ -63,6 +63,8 @@
 #include "dwc_otg_core_if.h"
 #include "dwc_otg_pcd_if.h"
 #include "dwc_otg_hcd_if.h"
+#include "dwc_otg_regs.h"
+#include "dwc_otg_cil.h"
 
 /* nexell soc headers */
 #include <mach/platform.h>
@@ -712,11 +714,10 @@ extern unsigned int get_otg_mode(void);
 //static int dwc_otg_driver_remove(struct platform_device *_dev);
 static int dwc_otg_driver_probe(struct platform_device *_dev);
 static struct platform_device *s_pdev = NULL;
-static struct dwc_otg_device_t *s_dwc_otg_device = NULL;
 extern void dwc_udc_resume(void);
 extern void dwc_udc_suspend(void);
 
-#ifndef CONFIG_SUSPEND_IDLE
+#if 0   //ndef CONFIG_SUSPEND_IDLE
 static struct notifier_block s_pm_notify;
 int dwc_otg_hcd_pm_notify(struct notifier_block *notifier_block,
         unsigned long mode, void *unused)
@@ -727,56 +728,32 @@ int dwc_otg_hcd_pm_notify(struct notifier_block *notifier_block,
     case PM_SUSPEND_PREPARE:
         PM_DBGOUT("%s: prepare suspend\n", __func__);
 
-        if (s_dwc_otg_device) {
-            struct platform_device *_dev = s_pdev;
-            dwc_otg_device_t *dwc_otg_device = s_dwc_otg_device;
+        if (s_pdev) {
+            struct platform_device * _dev = s_pdev;
+            dwc_otg_device_t *otg_dev;
+
+            otg_dev = platform_get_drvdata(s_pdev);
 
              /*
              * Disable the global interrupt until all the interrupt
              * handlers are installed.
              */
             dev_dbg(&_dev->dev, "Calling disable_global_interrupts\n");
-            dwc_otg_disable_global_interrupts(dwc_otg_device->core_if);
+            dwc_otg_disable_global_interrupts(otg_dev->core_if);
         }
-
-        otg_clk_disable();
-        otg_phy_off();
-
         break;
 
     case PM_POST_SUSPEND:
         PM_DBGOUT("%s: post suspend\n", __func__);
-#if 0
-        otg_phy_init();
-        otg_clk_enable();
 
-        if (s_dwc_otg_device) {
-            struct platform_device *_dev = s_pdev;
-            dwc_otg_device_t *dwc_otg_device = s_dwc_otg_device;
+        if (s_pdev) {
+            struct platform_device * _dev = s_pdev;
+            dwc_otg_device_t *otg_dev;
 
-            /*
-             * Disable the global interrupt until all the interrupt
-             * handlers are installed.
-             */
-            dev_dbg(&_dev->dev, "Calling disable_global_interrupts\n");
-            dwc_otg_disable_global_interrupts(dwc_otg_device->core_if);
-
-            /*
-             * Initialize the DWC_otg core.
-             */
-            dev_dbg(&_dev->dev, "Calling dwc_otg_core_init\n");
-            dwc_otg_core_init(dwc_otg_device->core_if);
-
-            /*
-             * Enable the global interrupt after all the interrupt
-             * handlers are installed if there is no ADP support else 
-             * perform initial actions required for Internal ADP logic.
-             */
             dev_dbg(&_dev->dev, "Calling enable_global_interrupts\n");
-            dwc_otg_enable_global_interrupts(dwc_otg_device->core_if);
+            dwc_otg_enable_global_interrupts(otg_dev->core_if);
             dev_dbg(&_dev->dev, "Done\n");
         }
-#endif
         break;
     }
 
@@ -789,6 +766,18 @@ static int dwc_otg_driver_suspend(struct platform_device *_dev, pm_message_t sta
 {
     PM_DBGOUT("+%s\n", __func__);
 
+    if (s_pdev) {
+        dwc_otg_device_t *otg_dev = platform_get_drvdata(s_pdev);
+        dwc_otg_core_if_t * core_if = otg_dev->core_if;
+
+        /* Disable all interrupts */
+        DWC_MODIFY_REG32(&core_if->core_global_regs->gahbcfg, 1, 0);
+        DWC_WRITE_REG32(&core_if->core_global_regs->gintmsk, 0);
+
+        otg_clk_disable();
+        otg_phy_off();
+    }
+
     PM_DBGOUT("-%s\n", __func__);
 
     return 0;
@@ -798,37 +787,16 @@ static int dwc_otg_driver_resume(struct platform_device *_dev)
 {
     PM_DBGOUT("+%s\n", __func__);
 
-#if 1
-        otg_phy_init();
-        otg_clk_enable();
+    if (s_pdev) {
+        dwc_udc_suspend();
 
-        if (s_dwc_otg_device) {
-            struct platform_device *_dev = s_pdev;
-            dwc_otg_device_t *dwc_otg_device = s_dwc_otg_device;
+        dwc_otg_driver_remove(s_pdev);
 
-            /*
-             * Disable the global interrupt until all the interrupt
-             * handlers are installed.
-             */
-            dev_dbg(&_dev->dev, "Calling disable_global_interrupts\n");
-            dwc_otg_disable_global_interrupts(dwc_otg_device->core_if);
+        dwc_otg_driver_probe(s_pdev);
+        mdelay(10);
 
-            /*
-             * Initialize the DWC_otg core.
-             */
-            dev_dbg(&_dev->dev, "Calling dwc_otg_core_init\n");
-            dwc_otg_core_init(dwc_otg_device->core_if);
-
-            /*
-             * Enable the global interrupt after all the interrupt
-             * handlers are installed if there is no ADP support else 
-             * perform initial actions required for Internal ADP logic.
-             */
-            dev_dbg(&_dev->dev, "Calling enable_global_interrupts\n");
-            dwc_otg_enable_global_interrupts(dwc_otg_device->core_if);
-            dev_dbg(&_dev->dev, "Done\n");
-        }
-#endif
+        dwc_udc_resume();
+    }
 
     PM_DBGOUT("-%s\n", __func__);
 
@@ -1027,13 +995,10 @@ static int dwc_otg_driver_probe(
 
     // psw0523 add for pm
 #if defined(CONFIG_PM) && defined(CONFIG_ARCH_NXP4330)
-    if (!s_dwc_otg_device)
-        s_dwc_otg_device = dwc_otg_device;
-
     if (!s_pdev)
         s_pdev = _dev;
 
-#ifndef CONFIG_SUSPEND_IDLE
+#if 0   //ndef CONFIG_SUSPEND_IDLE
     if (!s_pm_notify.notifier_call) {
         s_pm_notify.notifier_call = dwc_otg_hcd_pm_notify;
         register_pm_notifier(&s_pm_notify);
@@ -1110,7 +1075,6 @@ static int __init dwc_otg_driver_init(void)
 
 #if defined(CONFIG_ARCH_NXP3200) || defined(CONFIG_ARCH_NXP4330)
 #ifdef CONFIG_PM
-    s_dwc_otg_device = NULL;
     s_pdev = NULL;
 #endif
 #endif
@@ -1148,7 +1112,6 @@ static void __exit dwc_otg_driver_cleanup(void)
 
 #if defined(CONFIG_ARCH_NXP3200) || defined(CONFIG_ARCH_NXP4330)
 #ifdef CONFIG_PM
-    s_dwc_otg_device = NULL;
     s_pdev = NULL;
 #endif
 #endif
