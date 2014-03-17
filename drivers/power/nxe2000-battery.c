@@ -3219,7 +3219,7 @@ static void charger_irq_work(struct work_struct *work)
 				nxe2000_write(info->dev->parent, CHGISET_REG, val);
 
 				val = (0x1 << NXE2000_POS_CHGCTL1_VADPCHGEN);
-				nxe2000_write(info->dev->parent, CHGCTL1_REG, val);
+				nxe2000_set_bits(info->dev->parent, CHGCTL1_REG, val);
 
 				return;
 			}
@@ -3246,7 +3246,8 @@ static void charger_irq_work(struct work_struct *work)
     if ( pmic_vbus && otg_dev_mode )
     {
 #ifdef KOOK_ADP_ONLY_MODE
-        val     = (0x1 << NXE2000_POS_CHGCTL1_VADPCHGEN)
+        val     = (0x1 << NXE2000_POS_CHGCTL1_NOBATOVLIM)
+                | (0x1 << NXE2000_POS_CHGCTL1_VADPCHGEN)
                 | (0x1 << NXE2000_POS_CHGCTL1_VUSBCHGEN);
         nxe2000_write(info->dev->parent, CHGCTL1_REG, val);
 #endif
