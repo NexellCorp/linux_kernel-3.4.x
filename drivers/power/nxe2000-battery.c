@@ -4235,7 +4235,8 @@ static __devinit int nxe2000_battery_probe(struct platform_device *pdev)
 	if ((info->gpio_otg_usbid > -1) && (info->gpio_pmic_vbus > -1))
 		val 	= gpio_get_value(info->gpio_otg_usbid) + gpio_get_value(info->gpio_pmic_vbus);
 
-	temp	= (0x1 << NXE2000_POS_CHGCTL1_VUSBCHGEN)
+	temp	= (0x1 << NXE2000_POS_CHGCTL1_NOBATOVLIM)
+			| (0x1 << NXE2000_POS_CHGCTL1_VUSBCHGEN)
 			| (0x1 << NXE2000_POS_CHGCTL1_VADPCHGEN)
 			| (0x1 << NXE2000_POS_CHGCTL1_CHGP);
 	if ( !val )
