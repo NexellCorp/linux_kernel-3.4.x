@@ -206,6 +206,7 @@ struct nxp_key_plat_data {
     int                bt_count;
     unsigned int     * bt_io;
     unsigned int     * bt_code;
+    unsigned int     * bt_detect_high;
     unsigned int     * bt_long;         /* long press action */
     unsigned int     * bt_code_type;    /* short key type 0=short key, 1 = long key */
     unsigned int     * bt_long_type;    /* long  key type 0=short key, 1 = long key */

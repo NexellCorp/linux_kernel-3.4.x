@@ -198,9 +198,13 @@ static int __init cpu_l2cach_init(void)
 early_initcall(cpu_l2cach_init);
 #endif
 
+static void __init cpu_mem_reserve(void)
+{
 #ifdef CONFIG_CMA
 extern void nxp_reserve_mem(void);
+	nxp_reserve_mem();
 #endif
+}
 
 /*------------------------------------------------------------------------------
  * Maintainer: Nexell Co., Ltd.
@@ -217,6 +221,6 @@ MACHINE_START(NXP4330, CFG_SYS_CPU_NAME)
 	.timer			= &nxp_cpu_sys_timer,
 	.init_machine	=  cpu_init_machine,
 #ifdef CONFIG_CMA
-    .reserve        = nxp_reserve_mem,
+    .reserve        = cpu_mem_reserve,
 #endif
 MACHINE_END

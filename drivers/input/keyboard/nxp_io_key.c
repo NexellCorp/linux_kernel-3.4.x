@@ -43,7 +43,7 @@
 
 #define	KEY_STAT_PRESS		(0)
 #define	KEY_STAT_RELEASE	(1)
-#define	DELAY_WORK_JIFFIES 	1
+#define	DELAY_WORK_JIFFIES 	(1)
 
 struct key_code {
 	struct delayed_work key_event_work;	/* struct work_struct */
@@ -52,7 +52,8 @@ struct key_code {
 	unsigned int io;
 	unsigned int keycode;
 	unsigned int val;
-	unsigned int keystat;	/* current detect mode */
+	unsigned int keystat;		/* current detect mode */
+	unsigned int detect_high;	/* detect edge */
 };
 
 struct key_info {
@@ -99,7 +100,11 @@ static void nxp_key_event(struct work_struct *work)
 	DBGOUT("%s io:%d, code:%4d\n", __func__, code->io, keycode);
 
 	local_irq_save(flags);
+
 	press = gpio_get_value_cansleep(code->io);
+	if (code->detect_high)
+		press = !press;
+
 	local_irq_restore(flags);
 
 	if(press != code->keystat) {
@@ -125,10 +130,12 @@ static irqreturn_t nxp_key_interrupt(int irqno, void *dev_id)
 static int nxp_key_probe(struct platform_device *pdev)
 {
 	struct nxp_key_plat_data * plat = pdev->dev.platform_data;
-	struct key_info * key = NULL;
-	struct key_code * code = NULL;
-	struct input_dev* input = NULL;
-	int i, irq, keys, ret = 0;
+	struct key_info *key = NULL;
+	struct key_code *code = NULL;
+	struct input_dev *input = NULL;
+	int i, keys;
+	int ret = 0;
+
 	DBGOUT("%s (device name:%s, id:%d)\n", __func__, pdev->name, pdev->id);
 
 	/*	allocate key_info data */
@@ -149,6 +156,7 @@ static int nxp_key_probe(struct platform_device *pdev)
 	for (i = 0; keys > i; i++) {
 		code[i].io = plat->bt_io[i];
 		code[i].keycode = plat->bt_code[i];
+		code[i].detect_high = plat->bt_detect_high ? plat->bt_detect_high[i]: 0;
 		code[i].val = i;
 		code[i].info = key;
 		DBGOUT("%d key [io=%3d, key=%4d]\n", i, code[i].io, code[i].keycode);
@@ -165,8 +173,6 @@ static int nxp_key_probe(struct platform_device *pdev)
 	key->input = input;
 	key->keys = keys;
 	key->code = code;
-
-	nxp_key_setup(key);
 
 	/* set input device info */
 	input->name	= "Nexell Keypad";
@@ -193,6 +199,7 @@ static int nxp_key_probe(struct platform_device *pdev)
 		printk(KERN_ERR "fail, %s register for input device ...\n", pdev->name);
 		goto err_mem;
 	}
+	nxp_key_setup(key);
 
 	for (i=0; keys > i; i++) {
 		INIT_DELAYED_WORK(&code[i].key_event_work, nxp_key_event);
@@ -202,11 +209,11 @@ static int nxp_key_probe(struct platform_device *pdev)
     	   goto err_irq;
 	    }
 
-		irq = gpio_to_irq(code[i].io);
-		ret = request_irq(irq, nxp_key_interrupt,
+		ret = request_irq(gpio_to_irq(code[i].io), nxp_key_interrupt,
 				IRQF_SHARED | IRQ_TYPE_EDGE_BOTH, pdev->name, &code[i]);
 		if (ret) {
-			printk(KERN_ERR "fail, %s request detect dectet io %d ...\n", pdev->name, irq);
+			printk(KERN_ERR "fail, gpio[%d] %s request irq...\n",
+				code[i].io, pdev->name);
 			goto err_irq;
 		}
 	}
@@ -218,8 +225,7 @@ err_irq:
 	for (--i; i >= 0; i--) {
 		cancel_work_sync(&code[i].key_event_work.work);
 	    destroy_workqueue(code[i].key_workqueue);
-		irq = gpio_to_irq(code[i].io);
-		free_irq(irq, &code[i]);
+		free_irq(gpio_to_irq(code[i].io), &code[i]);
 	}
 	input_free_device(input);
 
@@ -268,9 +274,8 @@ static int nxp_key_resume(struct platform_device *pdev)
 	for (i = 0; key->keys > i; i++) {
 		unsigned int keycode = code[i].keycode;
 		int io = code[i].io;
-		int no = PAD_GET_BITNO(io);
-		if ((PAD_GPIO_ALV == (io & ~(0x1F))) &&	keycode == KEY_POWER) {
-			if (nxp_check_wake_event_alive(no)) {
+		if (keycode == KEY_POWER) {
+			if (nxp_check_pm_wakeup_dev("power key", io)) {
 				input_report_key(key->input, KEY_POWER, 1);
 		    	input_sync(key->input);
 		    	input_report_key(key->input, KEY_POWER, 0);

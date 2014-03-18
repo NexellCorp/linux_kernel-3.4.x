@@ -41,6 +41,7 @@ static unsigned int  sramsave[SRAM_SAVE_SIZE/4];
 static unsigned int *sramptr;
 
 #ifndef CONFIG_SUSPEND_IDLE
+void (*nxp_board_suspend_mark)(struct suspend_mark_up *mark, int suspend) = NULL;
 static void (*do_suspend)(ulong, ulong) = NULL;
 #endif
 
@@ -83,10 +84,10 @@ static struct board_suspend_ops *board_suspend = NULL;
 
 #if (0)
 #define	PM_SAVE_ADDR	(U32)virt_to_phys(&saved_regs)
-#define	PM_SAVE_SIZE	(sizeof(struct pm_saved_regs))
+#define	PM_SAVE_SIZE	SUSPEND_SAVE_SIZE
 #else
 #define	PM_SAVE_ADDR	(U32)__pa(_stext)
-#define	PM_SAVE_SIZE	(1024*1024)	// (_etext - _stext)
+#define	PM_SAVE_SIZE	SUSPEND_SAVE_SIZE
 #endif
 
 #define	SUSPEND_STATUS(s)	(SUSPEND_SUSPEND == s ? "suspend" : "resume")
@@ -295,6 +296,13 @@ static inline unsigned int __calc_crc(void *addr, int len)
 #ifndef CONFIG_SUSPEND_IDLE
 static void suspend_mark(suspend_state_t stat)
 {
+	struct suspend_mark_up mark = {
+		.resume_fn = (U32)virt_to_phys(cpu_resume),
+		.signature = SUSPEND_SIGNATURE,
+		.save_phy_addr = PM_SAVE_ADDR,
+		.save_phy_len = PM_SAVE_SIZE,
+	};
+
 	writel((-1UL), SCR_WAKE_FN_RESET);
 	writel((-1UL), SCR_CRC_PHY_RESET);
 	writel((-1UL), SCR_CRC_RET_RESET);
@@ -302,18 +310,25 @@ static void suspend_mark(suspend_state_t stat)
 	writel((-1UL), SCR_SIGNAGURE_RESET);
 
 	if (SUSPEND_SUSPEND == stat) {
-		U32 phy = PM_SAVE_ADDR;
-		U32 len = PM_SAVE_SIZE;
-		U32 crc = __calc_crc(__va(phy), len);
-		U32 fn  = (U32)virt_to_phys(cpu_resume);
+		uint phy = mark.save_phy_addr;
+		uint len = mark.save_phy_len;
+		mark.save_crc_ret = __calc_crc(__va(phy), len);
+	}
+
+	if (nxp_board_suspend_mark) {
+		nxp_board_suspend_mark(&mark, (SUSPEND_SUSPEND == stat ? 1: 0));
+		return;
+	}
+
+	if (SUSPEND_SUSPEND == stat) {
 		PM_DBGOUT("%s Suspend CRC [phy=0x%08x, calc=0x%08x, len=%d]\n",
-			__func__, phy, crc, len);
-		writel(SUSPEND_SIGNATURE, SCR_SIGNAGURE_SET);
-		writel(fn , SCR_WAKE_FN_SET);
-		writel(phy, SCR_CRC_PHY_SET);
-		writel(crc, SCR_CRC_RET_SET);
-		writel(len, SCR_CRC_LEN_SET);
-   }
+			__func__, mark.save_phy_addr, mark.save_crc_ret, mark.save_phy_len);
+		writel(mark.signature, SCR_SIGNAGURE_SET);
+		writel(mark.resume_fn , SCR_WAKE_FN_SET);
+		writel(mark.save_phy_addr, SCR_CRC_PHY_SET);
+		writel(mark.save_crc_ret, SCR_CRC_RET_SET);
+		writel(mark.save_phy_len, SCR_CRC_LEN_SET);
+	}
 }
 #endif
 
@@ -662,14 +677,24 @@ void nxp_board_suspend_register(struct board_suspend_ops *ops)
 /*
  * 	cpu wakeup source
  */
-unsigned int nxp_cpu_wake_event_devs(void)
+int nxp_check_pm_wakeup_alive(int num)
 {
-	return __wake_event_bits;
-}
-EXPORT_SYMBOL(nxp_cpu_wake_event_devs);
+	int grp = PAD_GET_GROUP(num);
+	int io  = PAD_GET_BITNO(num);
 
-int nxp_check_wake_event_alive(int num)
-{
-	return (__wake_event_bits & 1<<(num+2)) ? 1 : 0;
+	if (PAD_GPIO_ALV != grp)
+		return 0;
+
+	return (__wake_event_bits & 1<<(io+2)) ? 1 : 0;
 }
-EXPORT_SYMBOL(nxp_check_wake_event_alive);
+EXPORT_SYMBOL(nxp_check_pm_wakeup_alive);
+
+static int pm_check_wakeup_dev(char *dev, int io)
+{
+	printk("Check PM wakeup : %s, io[%d]\n", dev, io);
+	return nxp_check_pm_wakeup_alive(io);
+}
+
+int (*nxp_check_pm_wakeup_dev)(char *dev, int io) = pm_check_wakeup_dev;
+EXPORT_SYMBOL(nxp_check_pm_wakeup_dev);
+

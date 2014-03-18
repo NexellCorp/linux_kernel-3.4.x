@@ -41,6 +41,7 @@
 #define	SCR_CRC_LEN_READ		(SCR_ALIVE_BASE + 0xD8)
 
 #define SUSPEND_SIGNATURE		(0x50575200)	/* PWR (ASCII) */
+#define	SUSPEND_SAVE_SIZE		(1024*1024)		/* (_etext - _stext) */
 
 struct board_suspend_ops {
 	int  (*valid)		(suspend_state_t state);	/* before driver suspend */
@@ -53,10 +54,20 @@ struct board_suspend_ops {
 	void (*end)			(void);						/* after driver resume */
 };
 
+struct suspend_mark_up {
+	unsigned int resume_fn;
+	unsigned int signature;
+	unsigned int save_phy_addr;
+	unsigned int save_phy_len;
+	unsigned int save_crc_ret;
+};
+
 extern void nxp_board_suspend_register(struct board_suspend_ops *ops);
 
 /* Implement */
 extern void (*nxp_board_shutdown)(void);
+extern void (*nxp_board_pre_shutdown)(void);
+extern void (*nxp_board_suspend_mark)(struct suspend_mark_up *mark, int suspend);
 extern void (*nxp_board_reset)(char str, const char *cmd);
 
 #endif /* __BOARD_PM_H__ */
