@@ -682,7 +682,7 @@ int nxp_check_pm_wakeup_alive(int num)
 	int grp = PAD_GET_GROUP(num);
 	int io  = PAD_GET_BITNO(num);
 
-	if (PAD_GPIO_ALV != grp)
+	if (PAD_GET_GROUP(PAD_GPIO_ALV) != grp)
 		return 0;
 
 	return (__wake_event_bits & 1<<(io+2)) ? 1 : 0;
