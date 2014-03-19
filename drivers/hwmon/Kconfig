@@ -1406,6 +1406,8 @@ config	SENSORS_STK8313
 
 endchoice
 
+source drivers/hwmon/bosch/Kconfig
+
 if ACPI
 
 comment "ACPI drivers"
