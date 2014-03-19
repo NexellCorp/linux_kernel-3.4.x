@@ -1554,13 +1554,11 @@ int android_gadget_init(void)
 
 	PM_DBGOUT("g_android [%d] ++ %s\n", __LINE__, __func__);
 
-#if 0
 	dev->disable_depth = 1;
 	dev->functions = supported_functions;
 	INIT_LIST_HEAD(&dev->enabled_functions);
 	INIT_WORK(&dev->work, android_work);
 	mutex_init(&dev->mutex);
-#endif
 
 	/* Override composite driver functions */
 	composite_driver.setup = android_setup;
