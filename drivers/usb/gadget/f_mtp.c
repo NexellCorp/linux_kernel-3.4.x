@@ -410,6 +410,8 @@ static int mtp_create_bulk_endpoints(struct mtp_dev *dev,
 	ep->driver_data = dev;		/* claim the endpoint */
 	dev->ep_out = ep;
 
+    // psw0523 fix
+#if 0
 	ep = usb_ep_autoconfig(cdev->gadget, out_desc);
 	if (!ep) {
 		DBG(cdev, "usb_ep_autoconfig for ep_out failed\n");
@@ -418,6 +420,7 @@ static int mtp_create_bulk_endpoints(struct mtp_dev *dev,
 	DBG(cdev, "usb_ep_autoconfig for mtp ep_out got %s\n", ep->name);
 	ep->driver_data = dev;		/* claim the endpoint */
 	dev->ep_out = ep;
+#endif
 
 	ep = usb_ep_autoconfig(cdev->gadget, intr_desc);
 	if (!ep) {
@@ -459,16 +462,19 @@ fail:
 }
 
 static ssize_t mtp_read(struct file *fp, char __user *buf,
-	size_t count, loff_t *pos)
+				size_t count, loff_t *pos)
 {
 	struct mtp_dev *dev = fp->private_data;
 	struct usb_composite_dev *cdev = dev->cdev;
 	struct usb_request *req;
 	int r = count, xfer;
+	int maxp;
 	int ret = 0;
 
 	DBG(cdev, "mtp_read(%d)\n", count);
 
+	maxp = usb_endpoint_maxp(dev->ep_out->desc);
+	count = round_up(count, maxp);
 	if (count > MTP_BULK_BUFFER_SIZE)
 		return -EINVAL;
 
@@ -965,7 +971,6 @@ out:
 
 static int mtp_open(struct inode *ip, struct file *fp)
 {
-	printk(KERN_INFO "mtp_open\n");
 	if (mtp_lock(&_mtp_dev->open_excl))
 		return -EBUSY;
 
@@ -979,8 +984,6 @@ static int mtp_open(struct inode *ip, struct file *fp)
 
 static int mtp_release(struct inode *ip, struct file *fp)
 {
-	printk(KERN_INFO "mtp_release\n");
-
 	mtp_unlock(&_mtp_dev->open_excl);
 	return 0;
 }

@@ -271,7 +271,7 @@ static ssize_t adb_read(struct file *fp, char __user *buf,
 	struct usb_request *req;
 	int r = count, xfer;
 	int maxp;
-	int ret;
+	int ret = 0;
 
 	if (!_adb_dev)
 		return -ENODEV;
@@ -330,9 +330,9 @@ requeue_req:
 
 		pr_debug("rx %p %d\n", req, req->actual);
 		xfer = (req->actual < count) ? req->actual : count;
+		r = xfer;
 		if (copy_to_user(buf, req->buf, xfer))
 			r = -EFAULT;
-
 	} else
 		r = -EIO;
 
@@ -369,36 +369,34 @@ static ssize_t adb_write(struct file *fp, const char __user *buf,
 		ret = wait_event_interruptible(dev->write_wq,
 			(req = adb_req_get(dev, &dev->tx_idle)) || dev->error);
 
-		if (ret < 0) {
+		if (!req) {
 			r = ret;
 			break;
 		}
 
-		if (req != 0) {
-			if (count > ADB_BULK_BUFFER_SIZE)
-				xfer = ADB_BULK_BUFFER_SIZE;
-			else
-				xfer = count;
-			if (copy_from_user(req->buf, buf, xfer)) {
-				r = -EFAULT;
-				break;
-			}
-
-			req->length = xfer;
-			ret = usb_ep_queue(dev->ep_in, req, GFP_ATOMIC);
-			if (ret < 0) {
-				pr_debug("adb_write: xfer error %d\n", ret);
-				dev->error = 1;
-				r = -EIO;
-				break;
-			}
-
-			buf += xfer;
-			count -= xfer;
-
-			/* zero this so we don't try to free it on error exit */
-			req = 0;
+		if (count > ADB_BULK_BUFFER_SIZE)
+			xfer = ADB_BULK_BUFFER_SIZE;
+		else
+			xfer = count;
+		if (xfer && copy_from_user(req->buf, buf, xfer)) {
+			r = -EFAULT;
+			break;
 		}
+
+		req->length = xfer;
+		ret = usb_ep_queue(dev->ep_in, req, GFP_ATOMIC);
+		if (ret < 0) {
+			pr_debug("adb_write: xfer error %d\n", ret);
+			dev->error = 1;
+			r = -EIO;
+			break;
+		}
+
+		buf += xfer;
+		count -= xfer;
+
+		/* zero this so we don't try to free it on error exit */
+		req = 0;
 	}
 
 	if (req)
@@ -607,6 +605,7 @@ static int adb_setup(void)
 	return 0;
 
 err:
+	_adb_dev = NULL;
 	kfree(dev);
 	printk(KERN_ERR "adb gadget driver failed to initialize\n");
 	return ret;
@@ -614,8 +613,14 @@ err:
 
 static void adb_cleanup(void)
 {
-	misc_deregister(&adb_device);
+	struct adb_dev *dev = _adb_dev;
 
-	kfree(_adb_dev);
+	printk(KERN_INFO "%s\n", __func__);
+
+	if (!dev)
+		return;
+
+	misc_deregister(&adb_device);
 	_adb_dev = NULL;
+	kfree(dev);
 }
