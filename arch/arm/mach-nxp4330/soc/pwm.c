@@ -429,7 +429,8 @@ static int __init nxp_soc_pwm_init(void)
 		mutex_init(&pwm->lock);
 	}
 
-	clk_in_max = clk_get_rate(clk);
+	clk_in_max  = clk_get_rate(clk);
+	clk_in_max /= 2;
 
 	/* create attribute interface */
 #ifdef CONFIG_PWM_SYSFS
