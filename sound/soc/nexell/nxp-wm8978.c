@@ -40,14 +40,47 @@ static struct snd_soc_jack_gpio jack_gpio;
 static struct snd_soc_codec *wm8976 = NULL;
 static int codec_bias_level = 0;
 
+static void wm8976_amp_setting(void)
+{
+	struct snd_soc_codec *codec = wm8976;
+
+	int jack = jack_gpio.gpio;
+	int invert = jack_gpio.invert;
+	int level = gpio_get_value_cansleep(jack);
+
+	if (!codec)
+		return;
+
+	if(invert)
+		level &= ~level;
+
+	pr_debug("%s: Audio AMP %s \n", __func__, level?"Off":"On");
+
+	if (!level)
+	{
+		/* AMP on */
+		gpio_direction_output(AUDIO_AMP_POWER, 1);
+	}
+	else 
+	{
+		/* AMP off  */
+		gpio_direction_output(AUDIO_AMP_POWER, 0);
+	}
+
+}
+
 static int wm8976_jack_status_check(void)
 {
 	struct snd_soc_codec *codec = wm8976;
 	int jack = jack_gpio.gpio;
+	int invert = jack_gpio.invert;
 	int level = gpio_get_value_cansleep(jack);
 
 	if (!codec)
 		return -1;
+
+	if(invert)
+		level &= ~level;
 
 	pr_debug("%s: hp jack %s \n", __func__, level?"IN":"OUT");
 
@@ -55,12 +88,12 @@ static int wm8976_jack_status_check(void)
 		/* HP off/AMP on */
 		snd_soc_update_bits(codec, WM8978_LOUT1_HP_CONTROL, 0x40, 0x40);
 		snd_soc_update_bits(codec, WM8978_ROUT1_HP_CONTROL, 0x40, 0x40);
-		gpio_direction_output(AUDIO_AMP_POWER, 1);
+		//gpio_direction_output(AUDIO_AMP_POWER, 1);
 	} else {
 		/* HP on/AMP off  */
 		snd_soc_update_bits(codec, WM8978_LOUT1_HP_CONTROL, 0x40, 0x0);
 		snd_soc_update_bits(codec, WM8978_ROUT1_HP_CONTROL, 0x40, 0x0);
-		gpio_direction_output(AUDIO_AMP_POWER, 0);
+		//gpio_direction_output(AUDIO_AMP_POWER, 0);
 	}
 
 	return !level;
@@ -102,10 +135,14 @@ static int wm8976_startup(struct snd_pcm_substream *substream)
 	if (stream == SNDRV_PCM_STREAM_CAPTURE)
 		snd_soc_update_bits(codec, WM8978_POWER_MANAGEMENT_1, 0x10, 0x10);	// MICBIASEN
 
+#if 1
+	wm8976_amp_setting();
+#else
 	if (!gpio_get_value_cansleep(jack_gpio.gpio)) {
 		pr_debug("AMP ON\n");
 		gpio_direction_output(AUDIO_AMP_POWER, 1);
 	}
+#endif
 	return 0;
 }
 
@@ -119,6 +156,9 @@ static void wm8976_shutdown(struct snd_pcm_substream *substream)
 
 	if (stream == SNDRV_PCM_STREAM_CAPTURE)
 		snd_soc_update_bits(codec, WM8978_POWER_MANAGEMENT_1, 0x10, 0x00);	// MICBIASEN
+
+	gpio_direction_output(AUDIO_AMP_POWER, 0);
+
 /*
 	if (!gpio_get_value_cansleep(jack_gpio.gpio)){
 		pr_debug("AMP OFF\n");

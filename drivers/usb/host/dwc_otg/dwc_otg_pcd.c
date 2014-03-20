@@ -1387,10 +1387,11 @@ void dwc_otg_pcd_remove(dwc_otg_pcd_t * pcd)
 		}
 	} else {
 		DWC_FREE(pcd->setup_pkt);
-		pcd->setup_pkt = NULL;
 		DWC_FREE(pcd->status_buf);
-		pcd->status_buf = NULL;
 	}
+	pcd->setup_pkt = NULL;
+	pcd->status_buf = NULL;
+
 	DWC_SPINLOCK_FREE(pcd->lock);
 	/* Set core_if's lock pointer to NULL */
 	pcd->core_if->lock = NULL;
@@ -2179,58 +2180,65 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 	req->length = buflen;
 	req->sent_zlp = zero;
 	req->priv = req_handle;
-	req->dw_align_buf = NULL;
 
 //--> kook - [20130910] fixed on 4330
 #if defined(CONFIG_CACHE_L2X0) && defined(CONFIG_ARCH_NXP4330)
 	if ((GET_CORE_IF(pcd)->dma_enable
-        && (!ep->dwc_ep.is_in)
+		&& (!ep->dwc_ep.is_in)
 		&& (buflen != 0)
 		&& (dma_buf != DWC_DMA_ADDR_INVALID)
 		&& !GET_CORE_IF(pcd)->dma_desc_enable)) {
 
-        if (ep->ep_buf_info[ep->dwc_ep.num].dw_align_buf != NULL)
-        {
-            req->dw_align_buf      = ep->ep_buf_info[ep->dwc_ep.num].dw_align_buf;
-            req->dw_align_buf_dma  = ep->ep_buf_info[ep->dwc_ep.num].dw_align_buf_dma;
-        }
-        else
-        {
-            if (atomic_alloc)
-            {
-                req->dw_align_buf = DWC_DMA_ALLOC_ATOMIC(buflen,
-                         &req->dw_align_buf_dma);
-            }
-            else
-            {
-        		req->dw_align_buf = DWC_DMA_ALLOC(buflen,
-        				 &req->dw_align_buf_dma);
-            }
+		if (ep->ep_buf_info[ep->dwc_ep.num].dw_align_buf != NULL)
+		{
+			req->dw_align_buf      = ep->ep_buf_info[ep->dwc_ep.num].dw_align_buf;
+			req->dw_align_buf_dma  = ep->ep_buf_info[ep->dwc_ep.num].dw_align_buf_dma;
+		}
+		else
+		{
+			if (atomic_alloc)
+			{
+				req->dw_align_buf = DWC_DMA_ALLOC_ATOMIC(buflen,
+						 &req->dw_align_buf_dma);
+			}
+			else
+			{
+				req->dw_align_buf = DWC_DMA_ALLOC(buflen,
+						 &req->dw_align_buf_dma);
+			}
+			if (!req->dw_align_buf) {
+				DWC_ERROR
+					("%s: Failed to allocate memory to handle "
+					 "non-dword aligned buffer case\n",
+					 __func__);
+				return -DWC_E_NO_MEMORY;
+			}
 
-            ep->ep_buf_info[ep->dwc_ep.num].dw_align_buf     = req->dw_align_buf;
-            ep->ep_buf_info[ep->dwc_ep.num].dw_align_buf_dma = req->dw_align_buf_dma;
-            ep->ep_buf_info[ep->dwc_ep.num].length           = req->length;
-        }
+			ep->ep_buf_info[ep->dwc_ep.num].dw_align_buf     = req->dw_align_buf;
+			ep->ep_buf_info[ep->dwc_ep.num].dw_align_buf_dma = req->dw_align_buf_dma;
+			ep->ep_buf_info[ep->dwc_ep.num].length           = req->length;
+		}
 //<-- kook - [20130910] fixed on 4330
 
 #else
 
 	if ((dma_buf & 0x3) && GET_CORE_IF(pcd)->dma_enable
-			&& !GET_CORE_IF(pcd)->dma_desc_enable) {
-#if 0
-// org
+		&& (buflen != 0)
+		&& !GET_CORE_IF(pcd)->dma_desc_enable) {
 		req->dw_align_buf = DWC_DMA_ALLOC(buflen,
 				 &req->dw_align_buf_dma);
-#else
-//kook - [20130415] fixed on 3200 - JellyBean aosp-4.2.2_r1
-		req->dw_align_buf = DWC_DMA_ALLOC_ATOMIC(buflen,
-				 &req->dw_align_buf_dma);
-#endif
+		if (!req->dw_align_buf) {
+			DWC_ERROR
+				("%s: Failed to allocate memory to handle "
+				 "non-dword aligned buffer case\n",
+				 __func__);
+			return -DWC_E_NO_MEMORY;
+		}
 #endif
 
-        // psw0523 debugging
-        //printk("====> alloc align buf(%p), req(%p)\n", req->dw_align_buf, req);
-    }
+		// psw0523 debugging
+		//printk("====> alloc align buf(%p), req(%p)\n", req->dw_align_buf, req);
+	}
 	DWC_SPINLOCK_IRQSAVE(pcd->lock, &flags);
 
 	/*

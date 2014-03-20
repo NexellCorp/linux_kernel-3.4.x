@@ -129,6 +129,7 @@ obj-$(CONFIG_SENSORS_WM8350)	+= wm8350-hwmon.o
 obj-$(CONFIG_SENSORS_MMA7660)	+= mma7660.o
 obj-$(CONFIG_SENSORS_STK831X)	+= stk831x.o
 obj-$(CONFIG_PMBUS)		+= pmbus/
+obj-$(CONFIG_BOSCH)		+= bosch/
 
 ccflags-$(CONFIG_HWMON_DEBUG_CHIP) := -DDEBUG
 

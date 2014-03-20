@@ -388,9 +388,9 @@ static int nxp_i2s_check_param(struct nxp_i2s_snd_param *par)
 		par->in_clkgen = 0;
 	}
 
-	if (prescale) {
+	if (en_pclk) {
 		PSRAEN    = 1;
-		prescale -= 1;
+		prescale  = divide - 1;
 	}
 
 done:

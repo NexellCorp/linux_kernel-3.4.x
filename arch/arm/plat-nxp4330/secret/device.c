@@ -25,11 +25,11 @@
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 
+#include <linux/amba/pl022.h>
 /* nexell soc headers */
 #include <mach/platform.h>
 #include <mach/devices.h>
 #include <mach/soc.h>
-
 
 /*------------------------------------------------------------------------------
  * DW MMC (Synopsys DesignWare Memory Card Interface)
@@ -37,51 +37,28 @@
 #if defined(CONFIG_ARM_NXP4330_CPUFREQ)
 
 static unsigned long dfs_freq_table[][2] = {
-//	{ 1000000, 1200 },
-//	{  900000, 1200 },
+	{ 1200000, 1200 },
+	{ 1100000, 1200 },
+	{ 1000000, 1200 },
+	{  900000, 1200 },
 	{  800000, 1200 },
+#if 0
 	{  780000, 1200 },
-	{  760000, 1200 },
-	{  740000, 1200 },
-	{  720000, 1200 },
 	{  562000, 1200 },
 	{  533000, 1200 },
 	{  490000, 1200 },
-	{  470000, 1200 },
-	{  460000, 1200 },
-	{  450000, 1200 },
-	{  440000, 1200 },
-	{  430000, 1200 },
-	{  420000, 1200 },
-	{  410000, 1200 },
 	{  400000, 1200 },
-	{  399000, 1200 },
-	{  390000, 1200 },
-	{  384000, 1200 },
-	{  350000, 1200 },
-	{  330000, 1200 },
-	{  300000, 1200 },
-	{  266000, 1200 },
-	{  250000, 1200 },
-	{  220000, 1200 },
-	{  200000, 1200 },
-	{  166000, 1200 },
-	{  147500, 1200 },
-	{  133000, 1200 },
-	{  125000, 1200 },
-	{  100000, 1200 },
+#endif
 };
 
 struct nxp_cpufreq_plat_data dfs_plat_data = {
 	.pll_dev	   	= CONFIG_NXP4330_CPUFREQ_PLLDEV,
 	.freq_table	   	= dfs_freq_table,
 	.table_size	   	= ARRAY_SIZE(dfs_freq_table),
-#if (0)
-	.max_cpufreq   	= 700000,
-	.max_retention 	=  5000,
-	.rest_cpufreq  	= 500000,
-	.rest_retention = 20000,
-#endif
+	.max_cpufreq    = 1200*1000,
+	.max_retention  =   30*1000,
+	.rest_cpufreq   =  800*1000,
+	.rest_retention =    1*1000,
 };
 
 static struct platform_device dfs_plat_device = {
@@ -100,37 +77,37 @@ static struct platform_device dfs_plat_device = {
 #include <linux/dm9000.h>
 
 static struct resource dm9000_resource[] = {
-    [0] = {
-        .start  = CFG_ETHER_EXT_PHY_BASEADDR,
-        .end    = CFG_ETHER_EXT_PHY_BASEADDR + 1,       // 1 (8/16 BIT)
-        .flags  = IORESOURCE_MEM
-    },
-   [1] = {
-        .start  = CFG_ETHER_EXT_PHY_BASEADDR + 4,       // + 4 (8/16 BIT)
-        .end    = CFG_ETHER_EXT_PHY_BASEADDR + 5,       // + 5 (8/16 BIT)
-        .flags  = IORESOURCE_MEM
-   },
-   [2] = {
-        .start  = CFG_ETHER_EXT_IRQ_NUM,
-        .end    = CFG_ETHER_EXT_IRQ_NUM,
-        .flags  = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL,
-    }
+	[0] = {
+		.start	= CFG_ETHER_EXT_PHY_BASEADDR,
+		.end	= CFG_ETHER_EXT_PHY_BASEADDR + 1,		// 1 (8/16 BIT)
+		.flags	= IORESOURCE_MEM
+	},
+	[1] = {
+		.start	= CFG_ETHER_EXT_PHY_BASEADDR + 4,		// + 4 (8/16 BIT)
+		.end	= CFG_ETHER_EXT_PHY_BASEADDR + 5,		// + 5 (8/16 BIT)
+		.flags	= IORESOURCE_MEM
+	},
+	[2] = {
+		.start	= CFG_ETHER_EXT_IRQ_NUM,
+		.end	= CFG_ETHER_EXT_IRQ_NUM,
+		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL,
+	}
 };
 
 static struct dm9000_plat_data eth_plat_data = {
-    .flags      = DM9000_PLATF_8BITONLY,    // DM9000_PLATF_16BITONLY
+	.flags		= DM9000_PLATF_8BITONLY,	// DM9000_PLATF_16BITONLY
 };
 
 static struct platform_device dm9000_plat_device = {
-    .name           = "dm9000",
-    .id             = 0,
-    .num_resources  = ARRAY_SIZE(dm9000_resource),
-    .resource       = dm9000_resource,
-    .dev            = {
-        .platform_data  = &eth_plat_data,
-    }
+	.name			= "dm9000",
+	.id				= 0,
+	.num_resources	= ARRAY_SIZE(dm9000_resource),
+	.resource		= dm9000_resource,
+	.dev			= {
+		.platform_data	= &eth_plat_data,
+	}
 };
-#endif  /* CONFIG_DM9000 || CONFIG_DM9000_MODULE */
+#endif	/* CONFIG_DM9000 || CONFIG_DM9000_MODULE */
 
 /*------------------------------------------------------------------------------
  * DISPLAY (LVDS) / FB
@@ -173,6 +150,28 @@ static struct platform_device *fb_devices[] = {
 #endif /* CONFIG_FB_NEXELL */
 
 /*------------------------------------------------------------------------------
+ * backlight : generic pwm device
+ */
+#if defined(CONFIG_BACKLIGHT_PWM)
+#include <linux/pwm_backlight.h>
+
+static struct platform_pwm_backlight_data bl_plat_data = {
+	.pwm_id			= CFG_LCD_PRI_PWM_CH,
+	.max_brightness = 255 + 255,	/* 255 is 100%, set over 100% */
+	.dft_brightness = 128,	/* 50% */
+	.pwm_period_ns	= 1000000000/CFG_LCD_PRI_PWM_FREQ,
+};
+
+static struct platform_device bl_plat_device = {
+	.name	= "pwm-backlight",
+	.id		= -1,
+	.dev	= {
+		.platform_data	= &bl_plat_data,
+	},
+};
+#endif
+
+/*------------------------------------------------------------------------------
  * NAND device
  */
 #if defined(CONFIG_MTD_NAND_NEXELL)
@@ -180,11 +179,26 @@ static struct platform_device *fb_devices[] = {
 #include <asm-generic/sizes.h>
 
 static struct mtd_partition nxp_nand_parts[] = {
+#if 0
 	{
-		.name		= "root",
-		.offset		=  32 * SZ_1M,
+		.name           = "root",
+		.offset         =   0 * SZ_1M,
+	},
+#else
+	{
+		.name		= "system",
+		.offset		=  64 * SZ_1M,
+		.size		= 512 * SZ_1M,
+	}, {
+		.name		= "cache",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		= 256 * SZ_1M,
+	}, {
+		.name		= "userdata",
+		.offset		= MTDPART_OFS_APPEND,
 		.size		= MTDPART_SIZ_FULL,
 	}
+#endif
 };
 
 static struct nxp_nand_plat_data nand_plat_data = {
@@ -202,27 +216,47 @@ static struct platform_device nand_plat_device = {
 };
 #endif	/* CONFIG_MTD_NAND_NEXELL */
 
+/*------------------------------------------------------------------------------
+ * Touch platform device
+ */
+#if defined(CONFIG_TOUCHSCREEN_AW5306)
+#include <linux/i2c.h>
+#define	AW5306_I2C_BUS		(1)
+
+static struct i2c_board_info __initdata aw5306_i2c_bdi = {
+	.type	= "aw5306_ts",
+	.addr	= (0x70>>1),
+    .irq    = PB_PIO_IRQ(CFG_IO_TOUCH_PENDOWN_DETECT),
+};
+#endif
+
 
 /*------------------------------------------------------------------------------
- * ASoC Codec platform device
+ * ANDROID timed gpio platform device
  */
-#if defined(CONFIG_SND_SPDIF_TRANSCIEVER) || defined(CONFIG_SND_SPDIF_TRANSCIEVER_MODULE)
-static struct platform_device spdif_transciever = {
-	.name	= "spdif-dit",
-	.id		= -1,
+#if defined(CONFIG_GPIOLIB) && defined(CONFIG_ANDROID_TIMED_GPIO)
+
+#define CONFIG_ANDROID_VIBRATION
+#include <../../../../drivers/staging/android/timed_gpio.h>
+
+#define ANDROID_VIBRATION_GPIO    (PAD_GPIO_E + 1)
+static struct timed_gpio android_vibration = {
+    .name         = "vibrator",
+    .gpio         = ANDROID_VIBRATION_GPIO,
+    .max_timeout  = 15000, /* ms */
 };
 
-struct nxp_snd_dai_plat_data spdif_trans_dai_data = {
-	.sample_rate = 48000,
-	.pcm_format	 = SNDRV_PCM_FMTBIT_S16_LE,
+static struct timed_gpio_platform_data timed_gpio_data = {
+    .num_gpios    = 1,
+    .gpios        = &android_vibration,
 };
 
-static struct platform_device spdif_trans_dai = {
-	.name	= "spdif-transciever",
-	.id		= -1,
-	.dev	= {
-		.platform_data	= &spdif_trans_dai_data,
-	}
+static struct platform_device android_timed_gpios = {
+    .name         = "timed-gpio",
+    .id           = -1,
+	.dev          = {
+		.platform_data = &timed_gpio_data,
+	},
 };
 #endif
 /*------------------------------------------------------------------------------
@@ -251,6 +285,132 @@ static struct platform_device key_plat_device = {
 };
 #endif	/* CONFIG_KEYBOARD_NEXELL_KEY || CONFIG_KEYBOARD_NEXELL_KEY_MODULE */
 
+/*------------------------------------------------------------------------------
+ * ASoC Codec platform device
+ */
+#if defined(CONFIG_SND_CODEC_WM8976) || defined(CONFIG_SND_CODEC_WM8976_MODULE)
+#include <linux/i2c.h>
+
+#define	WM8976_I2C_BUS		(0)
+
+/* CODEC */
+static struct i2c_board_info __initdata wm8976_i2c_bdi = {
+	.type	= "wm8978",			// compatilbe with wm8976
+	.addr	= (0x34>>1),		// 0x1A (7BIT), 0x34(8BIT)
+};
+
+/* DAI */
+struct nxp_snd_dai_plat_data i2s_dai_data = {
+	.i2s_ch	= 0,
+	.sample_rate	= 48000,
+	.hp_jack 		= {
+		.support    	= 1,
+		.detect_io		= PAD_GPIO_C + 15,
+		.detect_level	= 0,
+	},
+};
+
+static struct platform_device wm8976_dai = {
+	.name			= "wm8976-audio",
+	.id				= 0,
+	.dev			= {
+		.platform_data	= &i2s_dai_data,
+	}
+};
+#endif
+
+#if defined(CONFIG_SND_SPDIF_TRANSCIEVER) || defined(CONFIG_SND_SPDIF_TRANSCIEVER_MODULE)
+static struct platform_device spdif_transciever = {
+	.name	= "spdif-dit",
+	.id		= -1,
+};
+
+struct nxp_snd_dai_plat_data spdif_trans_dai_data = {
+	.sample_rate = 48000,
+	.pcm_format	 = SNDRV_PCM_FMTBIT_S16_LE,
+};
+
+static struct platform_device spdif_trans_dai = {
+	.name	= "spdif-transciever",
+	.id		= -1,
+	.dev	= {
+		.platform_data	= &spdif_trans_dai_data,
+	}
+};
+#endif
+
+/*------------------------------------------------------------------------------
+ * Micom platform device
+ */
+#if 1//defined(CONFIG_PM_MICOM) || defined(CONFIG_PM_MICOM_MODULE)
+#include <linux/i2c.h>
+
+#define	MICOM_I2C_BUS		(0)
+
+static struct i2c_board_info micom_i2c_bdi = {
+	I2C_BOARD_INFO("pm-micom", (0x30)),
+};
+#endif
+
+/*------------------------------------------------------------------------------
+ * Accel-Sensor platform device
+ */
+#if defined(CONFIG_SENSORS_BMA2X2) || defined(CONFIG_SENSORS_BMA2X2_MODULE)
+#include <linux/i2c.h>
+#include <linux/bst_sensor_common.h>
+
+static struct bosch_sensor_specific bss_bma2x2 = {
+	.name = "bma2x2",
+	.place = 0,
+};
+
+#define	BMA2X2_I2C_BUS		(2)
+#define BMA2X2_IRQ			(PAD_GPIO_E + 2)
+
+static struct i2c_board_info bma2x2_i2c_bdi = {
+	.type	= "bma2x2",
+	.irq	= PB_PIO_IRQ(BMA2X2_IRQ),
+	.addr	= (0x18),
+	.platform_data = &bss_bma2x2,
+};
+#endif
+
+/*------------------------------------------------------------------------------
+ * Gyro-Sensor platform device
+ */
+#if defined(CONFIG_SENSORS_BMG) || defined(CONFIG_SENSORS_BMG_MODULE)
+#include <linux/i2c.h>
+#include <linux/bst_sensor_common.h>
+
+#define	BMG160_I2C_BUS		(2)
+
+static struct bosch_sensor_specific bss_bmg160 = {
+	.name = "bmg160",
+	.place = 0,
+};
+
+static struct i2c_board_info bmg160_i2c_bdi = {
+	.type	= "bmg160",
+	.addr	= (0x68),
+	.platform_data = &bss_bmg160,
+};
+#endif
+
+/*------------------------------------------------------------------------------
+ * Haptic platform device
+ */
+#if 0//defined(CONFIG_HAPTIC_DRV2605) || defined(CONFIG_HAPTIC_DRV2605_MODULE)
+#include <linux/i2c.h>
+
+#define	DRV2605_I2C_BUS		(0)
+
+static struct i2c_board_info __initdata drv2605_i2c_bdi = {
+	.type	= "drv2605",
+	.addr	= (0x5A),
+};
+#endif
+
+
 
 /*------------------------------------------------------------------------------
  *  * reserve mem
@@ -266,6 +426,8 @@ void __init nxp_reserve_mem(void)
             .name = "ion",
 #ifdef CONFIG_ION_NXP_CONTIGHEAP_SIZE
             .size = CONFIG_ION_NXP_CONTIGHEAP_SIZE * SZ_1K,
+#else
+			.size = 0,
 #endif
             {
                 .alignment = PAGE_SIZE,
@@ -280,7 +442,9 @@ void __init nxp_reserve_mem(void)
         "ion-nxp=ion;"
         "nx_vpu=ion;";
 
+#ifdef CONFIG_ION_NXP_CONTIGHEAP_SIZE
     printk("%s: reserve CMA: size %d\n", __func__, CONFIG_ION_NXP_CONTIGHEAP_SIZE * SZ_1K);
+#endif
     nxp_cma_region_reserve(regions, map);
 }
 #endif
@@ -333,34 +497,34 @@ static struct regulator_consumer_supply nxe2000_dc5_supply_0[] = {
 };
 
 static struct regulator_consumer_supply nxe2000_ldo1_supply_0[] = {
-	REGULATOR_SUPPLY("vgps_3.3V", NULL),
+	REGULATOR_SUPPLY("vwifi_3.3V", NULL),
 };
 static struct regulator_consumer_supply nxe2000_ldo2_supply_0[] = {
-	REGULATOR_SUPPLY("vdummy0_1.8V", NULL),
+	REGULATOR_SUPPLY("vlcd_1.8V", NULL),
 };
 static struct regulator_consumer_supply nxe2000_ldo3_supply_0[] = {
 	REGULATOR_SUPPLY("vsys1_1.8V", NULL),
 };
 static struct regulator_consumer_supply nxe2000_ldo4_supply_0[] = {
-	REGULATOR_SUPPLY("vsys_1.9V", NULL),
+	REGULATOR_SUPPLY("vsys_1.8V", NULL),
 };
 static struct regulator_consumer_supply nxe2000_ldo5_supply_0[] = {
-	REGULATOR_SUPPLY("vdtv_3.3V", NULL),
+	REGULATOR_SUPPLY("vdumy0", NULL),
 };
 static struct regulator_consumer_supply nxe2000_ldo6_supply_0[] = {
 	REGULATOR_SUPPLY("valive_3.3V", NULL),
 };
 static struct regulator_consumer_supply nxe2000_ldo7_supply_0[] = {
-	REGULATOR_SUPPLY("vvid_2.8V", NULL),
+	REGULATOR_SUPPLY("vvid_3.3V", NULL),
 };
 static struct regulator_consumer_supply nxe2000_ldo8_supply_0[] = {
-	REGULATOR_SUPPLY("vdumy1_3.3V", NULL),
+	REGULATOR_SUPPLY("vaudio_3.3V", NULL),
 };
 static struct regulator_consumer_supply nxe2000_ldo9_supply_0[] = {
-	REGULATOR_SUPPLY("vdumy2_3.3V", NULL),
+	REGULATOR_SUPPLY("vdumy1", NULL),
 };
 static struct regulator_consumer_supply nxe2000_ldo10_supply_0[] = {
-	REGULATOR_SUPPLY("vdumy3_1.2V", NULL),
+	REGULATOR_SUPPLY("vdumy2", NULL),
 };
 static struct regulator_consumer_supply nxe2000_ldortc1_supply_0[] = {
 	REGULATOR_SUPPLY("valive_1.8V", NULL),
@@ -398,24 +562,24 @@ static struct regulator_consumer_supply nxe2000_ldortc2_supply_0[] = {
 	}
 /* min_uV/max_uV : Please set the appropriate value for the devices that the power supplied within a*/
 /*                 range from min to max voltage according to NXE2000 specification. */
-NXE2000_PDATA_INIT(dc1,      0, 1000000, 2000000, 1, 1, 1300000, 1, 12);		/* 1.3V ARM */
-NXE2000_PDATA_INIT(dc2,      0, 1000000, 2000000, 1, 1, 1200000, 1, 14);		/* 1.2V CORE */
-NXE2000_PDATA_INIT(dc3,      0, 1000000, 3500000, 1, 1, 3300000, 1,  2);		/* 3.3V SYS */
-NXE2000_PDATA_INIT(dc4,      0, 1000000, 2000000, 1, 1, 1600000, 1, -1);		/* 1.6V DDR */
-NXE2000_PDATA_INIT(dc5,      0, 1000000, 2000000, 1, 1, 1600000, 1,  8);		/* 1.6V SYS */
+NXE2000_PDATA_INIT(dc1,      0,	1000000, 2000000, 1, 1, 1200000, 1, 12);	/* 1.2V ARM */
+NXE2000_PDATA_INIT(dc2,      0,	1000000, 2000000, 1, 1, 1100000, 1, 14);	/* 1.1V CORE */
+NXE2000_PDATA_INIT(dc3,      0,	1000000, 3500000, 1, 1, 3300000, 1,  2);	/* 3.3V SYS */
+NXE2000_PDATA_INIT(dc4,      0,	1000000, 2000000, 1, 1, 1600000, 1, -1);	/* 1.6V DDR */
+NXE2000_PDATA_INIT(dc5,      0,	1000000, 2000000, 1, 1, 1600000, 1,  8);	/* 1.6V SYS */
 
-NXE2000_PDATA_INIT(ldo1,     0, 1000000, 3500000, 1, 0, 3300000, 1,  2);		/* 3.3V GPS */
-NXE2000_PDATA_INIT(ldo2,     0, 1000000, 3500000, 0, 0,      -1, 0,  0);		/* Not Use */
-NXE2000_PDATA_INIT(ldo3,     0, 1000000, 3500000, 1, 0, 1800000, 1,  6);		/* 1.8V SYS1 */
-NXE2000_PDATA_INIT(ldo4,     0, 1000000, 3500000, 1, 0, 1900000, 1,  6);		/* 1.9V SYS */
-NXE2000_PDATA_INIT(ldo5,     0, 1000000, 3500000, 1, 0, 3300000, 1,  1);		/* 3.3V DTV */
-NXE2000_PDATA_INIT(ldo6,     0, 1000000, 3500000, 1, 0, 3300000, 1, -1);		/* 3.3V ALIVE */
-NXE2000_PDATA_INIT(ldo7,     0, 1000000, 3500000, 1, 0, 2800000, 1,  4);		/* 2.8V VID */
-NXE2000_PDATA_INIT(ldo8,     0, 1000000, 3500000, 0, 0,      -1, 0,  0);		/* Not Use */
-NXE2000_PDATA_INIT(ldo9,     0, 1000000, 3500000, 0, 0,      -1, 0,  0);		/* Not Use */
-NXE2000_PDATA_INIT(ldo10,    0, 1000000, 3500000, 0, 0,      -1, 0,  0);		/* Not Use */
-NXE2000_PDATA_INIT(ldortc1,  0, 1700000, 3500000, 1, 0, 1800000, 1, -1);		/* 1.8V ALIVE */
-NXE2000_PDATA_INIT(ldortc2,  0, 1000000, 3500000, 1, 0, 1000000, 1, -1);		/* 1.0V ALIVE */
+NXE2000_PDATA_INIT(ldo1,     0,	1000000, 3500000, 1, 0, 3300000, 1,  2);	/* 3.3V WIFI */
+NXE2000_PDATA_INIT(ldo2,     0,	1000000, 3500000, 1, 1, 1800000, 1,  2);	/* 1.8V LCD */
+NXE2000_PDATA_INIT(ldo3,     0,	1000000, 3500000, 1, 0, 1900000, 1,  6);	/* 1.8V SYS1 */
+NXE2000_PDATA_INIT(ldo4,     0,	1000000, 3500000, 1, 0, 1900000, 1,  6);	/* 1.8V SYS */
+NXE2000_PDATA_INIT(ldo5,     0,	1000000, 3500000, 0, 0,      -1, 0,  0);	/* Not Use */
+NXE2000_PDATA_INIT(ldo6,     0,	1000000, 3500000, 1, 0, 3300000, 1, -1);	/* 3.3V ALIVE */
+NXE2000_PDATA_INIT(ldo7,     0,	1000000, 3500000, 1, 0, 3300000, 1,  2);	/* 3.3V VID */
+NXE2000_PDATA_INIT(ldo8,     0,	1000000, 3500000, 0, 0, 3300000, 0,  0);	/* 3.3V AUDIO */
+NXE2000_PDATA_INIT(ldo9,     0,	1000000, 3500000, 0, 0,      -1, 0,  0);	/* Not Use */
+NXE2000_PDATA_INIT(ldo10,    0,	1000000, 3500000, 0, 0,      -1, 0,  0);	/* Not Use */
+NXE2000_PDATA_INIT(ldortc1,  0,	1700000, 3500000, 1, 0, 1800000, 1, -1);	/* 1.8V ALIVE */
+NXE2000_PDATA_INIT(ldortc2,  0,	1000000, 3500000, 1, 0, 1000000, 1, -1);	/* 1.0V ALIVE */
 
 
 /*-------- if nxe2000 RTC exists -----------*/
@@ -473,7 +637,7 @@ static struct nxe2000_pwrkey_platform_data nxe2000_pwrkey_data = {
 static struct nxe2000_battery_platform_data nxe2000_battery_data = {
 	.irq 				= NXE2000_IRQ_BASE,
 
-	.input_power_type   = INPUT_POWER_TYPE_UBC,
+	.input_power_type	= INPUT_POWER_TYPE_UBC,
 
 	.gpio_otg_usbid		= CFG_GPIO_OTG_USBID_DET,
 	.gpio_otg_vbus		= CFG_GPIO_OTG_VBUS_DET,
@@ -490,7 +654,7 @@ static struct nxe2000_battery_platform_data nxe2000_battery_data = {
 		.ch_vrchg		= 0xFF,	/* VRCHG	= 0 - 4 (3.85v, 3.90v, 3.95v, 4.00v, 4.10v) */
 		.ch_vbatovset	= 0xFF,	/* VBATOVSET	= 0 or 1 (0 : 4.38v(up)/3.95v(down) 1: 4.53v(up)/4.10v(down)) */
 		.ch_ichg 		= 0x07,	/* ICHG		= 0 - 0x1D (100mA - 3000mA) */
-		.ch_ilim_adp 	= 0x18,	/* ILIM_ADP	= 0 - 0x1D (100mA - 3000mA) */
+		.ch_ilim_adp 	= 0x0E,	/* ILIM_ADP	= 0 - 0x1D (100mA - 3000mA) */
 		.ch_ilim_usb 	= 0x04,	/* ILIM_USB	= 0 - 0x1D (100mA - 3000mA) */
 		.ch_icchg		= 0x03,	/* ICCHG	= 0 - 3 (50mA 100mA 150mA 200mA) */
 		.fg_target_vsys	= 3000,	/* This value is the target one to DSOC=0% */
@@ -510,9 +674,9 @@ static struct nxe2000_battery_platform_data nxe2000_battery_data = {
 		.ch_vfchg		= 0x0,
 		.ch_vrchg		= 0x0,
 		.ch_vbatovset	= 0x0,
-		.ch_ichg			= 0x0,
-		.ch_ilim_adp		= 0x0,
-		.ch_ilim_usb		= 0x0,
+		.ch_ichg		= 0x0,
+		.ch_ilim_adp	= 0x0,
+		.ch_ilim_usb	= 0x0,
 		.ch_icchg		= 0x00,
 		.fg_target_vsys	= 3300,//3000,
 		.fg_target_ibat	= 1000,//1000,
@@ -551,11 +715,11 @@ static struct nxe2000_battery_platform_data nxe2000_battery_data = {
 
 
 #define NXE2000_DEV_REG 		\
-	NXE2000_REG(DC1, dc1, 0),		\
-	NXE2000_REG(DC2, dc2, 0),		\
-	NXE2000_REG(DC3, dc3, 0),		\
-	NXE2000_REG(DC4, dc4, 0),		\
-	NXE2000_REG(DC5, dc5, 0),		\
+	NXE2000_REG(DC1, dc1, 0),	\
+	NXE2000_REG(DC2, dc2, 0),	\
+	NXE2000_REG(DC3, dc3, 0),	\
+	NXE2000_REG(DC4, dc4, 0),	\
+	NXE2000_REG(DC5, dc5, 0),	\
 	NXE2000_REG(LDO1, ldo1, 0),	\
 	NXE2000_REG(LDO2, ldo2, 0),	\
 	NXE2000_REG(LDO3, ldo3, 0),	\
@@ -615,105 +779,6 @@ static struct i2c_board_info __initdata nxe2000_regulators[] = {
 #endif  /* CONFIG_REGULATOR_NXE2000 */
 
 /*------------------------------------------------------------------------------
- * MPEGTS platform device
- */
-#if defined(CONFIG_NXP4330_MP2TS_IF)
-#include <mach/nxp4330_mp2ts.h>
-
-#define NXP_TS_PAGE_NUM_0       (36)	// Variable
-#define NXP_TS_BUF_SIZE_0       (TS_PAGE_SIZE * NXP_TS_PAGE_NUM_0)
-
-#define NXP_TS_PAGE_NUM_1       (36)	// Variable
-#define NXP_TS_BUF_SIZE_1       (TS_PAGE_SIZE * NXP_TS_PAGE_NUM_1)
-
-#define NXP_TS_PAGE_NUM_CORE    (36)	// Variable
-#define NXP_TS_BUF_SIZE_CORE    (TS_PAGE_SIZE * NXP_TS_PAGE_NUM_CORE)
-
-
-static struct nxp_mp2ts_dev_info mp2ts_dev_info[2] = {
-    {
-        .demod_irq_num = CFG_GPIO_DEMOD_0_IRQ_NUM,
-        .demod_rst_num = CFG_GPIO_DEMOD_0_RST_NUM,
-        .tuner_rst_num = CFG_GPIO_TUNER_0_RST_NUM,
-    },
-    {
-        .demod_irq_num = CFG_GPIO_DEMOD_1_IRQ_NUM,
-        .demod_rst_num = CFG_GPIO_DEMOD_1_RST_NUM,
-        .tuner_rst_num = CFG_GPIO_TUNER_1_RST_NUM,
-    },
-};
-
-static struct nxp_mp2ts_plat_data mpegts_plat_data = {
-    .dev_info       = mp2ts_dev_info,
-    .ts_dma_size[0] = NXP_TS_BUF_SIZE_0,    // TS ch 0 - Static alloc size.
-    .ts_dma_size[1] = -1,                   // TS ch 1 - Static alloc size.
-    .ts_dma_size[2] = -1,                   // TS core - Static alloc size.
-};
-
-static struct platform_device mpegts_plat_device = {
-    .name   = DEV_NAME_MPEGTSI,
-    .id     = 0,
-    .dev    = {
-        .platform_data = &mpegts_plat_data,
-    },
-};
-#endif  /* CONFIG_NXP4330_MP2TS_IF */
-
-/*------------------------------------------------------------------------------
- * DW MMC board config
- */
-#if defined(CONFIG_MMC_DW)
-int _dwmci_ext_cd_init(void (*notify_func)(struct platform_device *, int state))
-{
-	return 0;
-}
-
-int _dwmci_ext_cd_cleanup(void (*notify_func)(struct platform_device *, int state))
-{
-	return 0;
-}
-
-#ifdef CONFIG_MMC_NEXELL_CH0
-static int _dwmci0_init(u32 slot_id, irq_handler_t handler, void *data)
-{
-	struct dw_mci *host = (struct dw_mci *)data;
-	int io  = CFG_SDMMC0_DETECT_IO;
-	int irq = IRQ_GPIO_START + io;
-	int id  = 0, ret = 0;
-
-	printk("dw_mmc dw_mmc.%d: Using external card detect irq %3d (io %2d)\n", id, irq, io);
-
-	ret  = request_irq(irq, handler, IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
-				DEV_NAME_SDHC "0", (void*)host->slot[slot_id]);
-	if (0 > ret)
-		pr_err("dw_mmc dw_mmc.%d: fail request interrupt %d ...\n", id, irq);
-	return 0;
-}
-
-static int _dwmci0_get_cd(u32 slot_id)
-{
-	int io = CFG_SDMMC0_DETECT_IO;
-	return nxp_soc_gpio_get_in_value(io);
-}
-
-static struct dw_mci_board _dwmci0_data = {
-	.quirks			= DW_MCI_QUIRK_HIGHSPEED,
-	.bus_hz			= 100 * 1000 * 1000,
-	.caps			= MMC_CAP_CMD23,
-	.detect_delay_ms= 200,
-//	.sdr_timing		= 0x03020001,
-//	.ddr_timing		= 0x03030002,
-	.cd_type		= DW_MCI_CD_EXTERNAL,
-	.init			= _dwmci0_init,
-	.get_cd			= _dwmci0_get_cd,
-	.ext_cd_init	= _dwmci_ext_cd_init,
-	.ext_cd_cleanup	= _dwmci_ext_cd_cleanup,
-};
-#endif
-
-#endif /* CONFIG_MMC_DW */
-
-/*------------------------------------------------------------------------------
  * v4l2 platform device
  */
 #if defined(CONFIG_V4L2_NEXELL) || defined(CONFIG_V4L2_NEXELL_MODULE)
@@ -724,6 +789,7 @@ static struct dw_mci_board _dwmci0_data = {
 #include <mach/soc.h>
 
 
+/* out platformdata */
 static struct i2c_board_info hdmi_edid_i2c_boardinfo = {
     I2C_BOARD_INFO("nxp_edid", 0xA0>>1),
 };
@@ -766,30 +832,160 @@ static int hdmi_read_hpd_gpio(int gpio)
 
 static struct nxp_out_platformdata out_plat_data = {
     .hdmi = {
-    .internal_irq = 0,
-    .external_irq = PAD_GPIO_A + 19,
-    .set_int_external = hdmi_set_int_external,
-    .set_int_internal = hdmi_set_int_internal,
-    .read_hpd_gpio = hdmi_read_hpd_gpio,
-    .edid = &edid,
-    .hdcp = &hdcp,
+        .internal_irq = 0,
+        .external_irq = PAD_GPIO_A + 19,
+        .set_int_external = hdmi_set_int_external,
+        .set_int_internal = hdmi_set_int_internal,
+        .read_hpd_gpio = hdmi_read_hpd_gpio,
+        .edid = &edid,
+        .hdcp = &hdcp,
     },
 };
 
-
 static struct nxp_v4l2_platformdata v4l2_plat_data = {
-	.out = &out_plat_data,
+    .out = &out_plat_data,
 };
 
 static struct platform_device nxp_v4l2_dev = {
-	.name       = NXP_V4L2_DEV_NAME,
-	.id         = 0,
-	.dev        = {
-		.platform_data = &v4l2_plat_data,
-	},
+    .name       = NXP_V4L2_DEV_NAME,
+    .id         = 0,
+    .dev        = {
+        .platform_data = &v4l2_plat_data,
+    },
+};
+#endif /* CONFIG_V4L2_NEXELL || CONFIG_V4L2_NEXELL_MODULE */
+
+/*------------------------------------------------------------------------------
+ * SSP/SPI
+ */
+#if defined(CONFIG_SPI_SPIDEV) || defined(CONFIG_SPI_SPIDEV_MODULE)
+#include <linux/spi/spi.h>
+static void spi0_cs(u32 chipselect)
+{
+#if (CFG_SPI0_CS_GPIO_MODE)
+	if(nxp_soc_gpio_get_io_func( CFG_SPI0_CS )!= nxp_soc_gpio_get_altnum( CFG_SPI0_CS))
+		nxp_soc_gpio_set_io_func( CFG_SPI0_CS, nxp_soc_gpio_get_altnum( CFG_SPI0_CS));
+
+	nxp_soc_gpio_set_io_dir( CFG_SPI0_CS,1);
+	nxp_soc_gpio_set_out_value(	 CFG_SPI0_CS , chipselect);
+#else
+	;
+#endif
+}
+struct pl022_config_chip spi0_info = {
+    /* available POLLING_TRANSFER, INTERRUPT_TRANSFER, DMA_TRANSFER */
+    .com_mode = CFG_SPI0_COM_MODE,
+    .iface = SSP_INTERFACE_MOTOROLA_SPI,
+    /* We can only act as master but SSP_SLAVE is possible in theory */
+    .hierarchy = SSP_MASTER,
+    /* 0 = drive TX even as slave, 1 = do not drive TX as slave */
+    .slave_tx_disable = 1,
+    .rx_lev_trig = SSP_RX_4_OR_MORE_ELEM,
+    .tx_lev_trig = SSP_TX_4_OR_MORE_EMPTY_LOC,
+    .ctrl_len = SSP_BITS_8,
+    .wait_state = SSP_MWIRE_WAIT_ZERO,
+    .duplex = SSP_MICROWIRE_CHANNEL_FULL_DUPLEX,
+    /*
+     * This is where you insert a call to a function to enable CS
+     * (usually GPIO) for a certain chip.
+     */
+#if (CFG_SPI0_CS_GPIO_MODE)
+    .cs_control = spi0_cs,
+#endif
+	.clkdelay = SSP_FEEDBACK_CLK_DELAY_1T,
+
+};
+
+static struct spi_board_info spi_plat_board[] __initdata = {
+    [0] = {
+        .modalias        = "spidev",    /* fixup */
+        .max_speed_hz    = 3125000,     /* max spi clock (SCK) speed in HZ */
+        .bus_num         = 0,           /* Note> set bus num, must be smaller than ARRAY_SIZE(spi_plat_device) */
+        .chip_select     = 0,           /* Note> set chip select num, must be smaller than spi cs_num */
+        .controller_data = &spi0_info,
+        .mode            = SPI_MODE_3 | SPI_CPOL | SPI_CPHA,
+    },
+};
+
+#endif
+/*------------------------------------------------------------------------------
+ * DW MMC board config
+ */
+#if defined(CONFIG_MMC_DW)
+int _dwmci_ext_cd_init(void (*notify_func)(struct platform_device *, int state))
+{
+	return 0;
+}
+
+int _dwmci_ext_cd_cleanup(void (*notify_func)(struct platform_device *, int state))
+{
+	return 0;
+}
+
+static int _dwmci_get_ro(u32 slot_id)
+{
+	return 0;
+}
+
+#ifdef CONFIG_MMC_NEXELL_CH0
+static int _dwmci0_init(u32 slot_id, irq_handler_t handler, void *data)
+{
+	struct dw_mci *host = (struct dw_mci *)data;
+	int io  = CFG_SDMMC0_DETECT_IO;
+	int irq = IRQ_GPIO_START + io;
+	int id  = 0, ret = 0;
+
+	printk("dw_mmc dw_mmc.%d: Using external card detect irq %3d (io %2d)\n", id, irq, io);
+
+	ret  = request_irq(irq, handler, IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
+				DEV_NAME_SDHC "0", (void*)host->slot[slot_id]);
+	if (0 > ret)
+		pr_err("dw_mmc dw_mmc.%d: fail request interrupt %d ...\n", id, irq);
+	return 0;
+}
+
+static int _dwmci0_get_cd(u32 slot_id)
+{
+	int io = CFG_SDMMC0_DETECT_IO;
+	return nxp_soc_gpio_get_in_value(io);
+}
+
+static struct dw_mci_board _dwmci0_data = {
+	.quirks			= DW_MCI_QUIRK_BROKEN_CARD_DETECTION,
+	.bus_hz			= 100 * 1000 * 1000,
+	.caps			= MMC_CAP_CMD23,
+	.detect_delay_ms= 200,
+//	.sdr_timing		= 0x03020001,
+//	.ddr_timing		= 0x03030002,
+	.cd_type		= DW_MCI_CD_EXTERNAL,
+	.init			= _dwmci0_init,
+	.get_ro         = _dwmci_get_ro,
+	.get_cd			= _dwmci0_get_cd,
+	.ext_cd_init	= _dwmci_ext_cd_init,
+	.ext_cd_cleanup	= _dwmci_ext_cd_cleanup,
 };
 #endif
 
+#ifdef CONFIG_MMC_NEXELL_CH1
+static struct dw_mci_board _dwmci1_data = {
+	.quirks			= DW_MCI_QUIRK_BROKEN_CARD_DETECTION |
+				  	  DW_MCI_QUIRK_HIGHSPEED |
+				  	  DW_MMC_QUIRK_HW_RESET_PW |
+				      DW_MCI_QUIRK_NO_DETECT_EBIT,
+	.bus_hz			= 100 * 1000 * 1000,
+	.caps			= MMC_CAP_UHS_DDR50 |
+					  MMC_CAP_NONREMOVABLE |
+			 	  	  MMC_CAP_4_BIT_DATA | MMC_CAP_CMD23 |
+				  	  MMC_CAP_ERASE | MMC_CAP_HW_RESET,
+	.caps2			= MMC_CAP2_PACKED_WR,
+	.desc_sz		= 4,
+	.detect_delay_ms= 200,
+	.sdr_timing		= 0x03020001,
+	.ddr_timing		= 0x03030002,
+};
+#endif
+
+#endif /* CONFIG_MMC_DW */
 /*------------------------------------------------------------------------------
  * register board platform devices
  */
@@ -811,11 +1007,19 @@ void __init nxp_board_devices_register(void)
 	#ifdef CONFIG_MMC_NEXELL_CH0
 	nxp_mmc_add_device(0, &_dwmci0_data);
 	#endif
+	#ifdef CONFIG_MMC_NEXELL_CH1
+	nxp_mmc_add_device(1, &_dwmci1_data);
+	#endif
 #endif
 
 #if defined(CONFIG_DM9000) || defined(CONFIG_DM9000_MODULE)
 	printk("plat: add device dm9000 net\n");
 	platform_device_register(&dm9000_plat_device);
+#endif
+
+#if defined(CONFIG_BACKLIGHT_PWM)
+	printk("plat: add backlight pwm device\n");
+	platform_device_register(&bl_plat_device);
 #endif
 
 #if defined(CONFIG_MTD_NAND_NEXELL)
@@ -827,14 +1031,20 @@ void __init nxp_board_devices_register(void)
 	platform_device_register(&key_plat_device);
 #endif
 
+#if defined(CONFIG_ANDROID_VIBRATION)
+	printk("plat: add android timed gpio\n");
+    platform_device_register(&android_timed_gpios);
+#endif
+
 #if defined(CONFIG_REGULATOR_NXE2000)
 	printk("plat: add device nxe2000 pmic\n");
 	i2c_register_board_info(NXE2000_I2C_BUS, nxe2000_regulators, ARRAY_SIZE(nxe2000_regulators));
 #endif
 
-#if defined(CONFIG_NXP4330_MP2TS_IF)
-    printk("plat: add device misc mpegts\n");
-    platform_device_register(&mpegts_plat_device);
+#if defined(CONFIG_SND_CODEC_WM8976) || defined(CONFIG_SND_CODEC_WM8976_MODULE)
+	printk("plat: add device asoc-wm8976\n");
+	i2c_register_board_info(WM8976_I2C_BUS, &wm8976_i2c_bdi, 1);
+	platform_device_register(&wm8976_dai);
 #endif
 
 #if defined(CONFIG_SND_SPDIF_TRANSCIEVER) || defined(CONFIG_SND_SPDIF_TRANSCIEVER_MODULE)
@@ -846,6 +1056,36 @@ void __init nxp_board_devices_register(void)
 #if defined(CONFIG_V4L2_NEXELL) || defined(CONFIG_V4L2_NEXELL_MODULE)
     printk("plat: add device nxp-v4l2\n");
     platform_device_register(&nxp_v4l2_dev);
+#endif
+
+#if defined(CONFIG_SPI_SPIDEV) || defined(CONFIG_SPI_SPIDEV_MODULE)
+    spi_register_board_info(spi_plat_board, ARRAY_SIZE(spi_plat_board));
+    printk("plat: register spidev\n");
+#endif
+
+#if defined(CONFIG_TOUCHSCREEN_AW5306)
+	printk("plat: add touch(aw5306) device\n");
+	i2c_register_board_info(AW5306_I2C_BUS, &aw5306_i2c_bdi, 1);
+#endif
+
+#if 1//defined(CONFIG_PM_MICOM) || defined(CONFIG_PM_MICOM_MODULE)
+	printk("plat: add pm-micom\n");
+	i2c_register_board_info(MICOM_I2C_BUS, &micom_i2c_bdi, 1);
+#endif
+
+#if defined(CONFIG_SENSORS_BMA2X2) || defined(CONFIG_SENSORS_BMA2X2_MODULE)
+	printk("plat: add accel-sensor(bma2x2)\n");
+	i2c_register_board_info(BMA2X2_I2C_BUS, &bma2x2_i2c_bdi, 1);
+#endif
+
+#if defined(CONFIG_SENSORS_BMG) || defined(CONFIG_SENSORS_BMG_MODULE)
+	printk("plat: add gyro-sensor(bmg160)\n");
+	i2c_register_board_info(BMG160_I2C_BUS, &bmg160_i2c_bdi, 1);
+#endif
+
+#if 0//defined(CONFIG_HAPTIC_DRV2605) || defined(CONFIG_HAPTIC_DRV2605_MODULE)
+	printk("plat: add haptic(drv2605)\n");
+	i2c_register_board_info(DRV2605_I2C_BUS, &drv2605_i2c_bdi, 1);
 #endif
 
 	/* END */

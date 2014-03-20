@@ -29,7 +29,7 @@
  * 	System Name
  */
 #define	CFG_SYS_CPU_NAME						"nxp4330q"
-#define	CFG_SYS_BOARD_NAME						"nxp4330-lynx"
+#define	CFG_SYS_BOARD_NAME						"nxp4330-secret"
 
 /*------------------------------------------------------------------------------
  * 	Uart
@@ -56,7 +56,6 @@
 #define CFG_NAND_ECC_BYTES 						1024
 #define CFG_NAND_ECC_BITS               		40			/* 512 - 4,8,16,24 1024 - 24,40,60 */
 //#define CFG_NAND_ECCIRQ_MODE
-//#define CFG_MTD_NAND_BMT_FIRST_LAST
 
 /*------------------------------------------------------------------------------
  *	Nand (GPIO)
@@ -73,23 +72,23 @@
 #define CFG_DISP_PRI_SCREEN_COLOR_KEY	        0x090909
 
 #define CFG_DISP_PRI_VIDEO_PRIORITY				2	// 0, 1, 2, 3
-#define CFG_DISP_PRI_BACK_GROUND_COLOR	     	0x0
+#define CFG_DISP_PRI_BACK_GROUND_COLOR	     	0x000000
 
 #define CFG_DISP_PRI_MLC_INTERLACE              CFALSE
 
 #define	CFG_DISP_PRI_LCD_WIDTH_MM				152.4
 #define	CFG_DISP_PRI_LCD_HEIGHT_MM				91.44
 
-#define CFG_DISP_PRI_RESOL_WIDTH          		1280	// X Resolution
-#define CFG_DISP_PRI_RESOL_HEIGHT				 800	// Y Resolution
+#define CFG_DISP_PRI_RESOL_WIDTH          		800	// X Resolution
+#define CFG_DISP_PRI_RESOL_HEIGHT				1280	// Y Resolution
 
-#define CFG_DISP_PRI_HSYNC_SYNC_WIDTH           1
-#define CFG_DISP_PRI_HSYNC_BACK_PORCH           0
-#define CFG_DISP_PRI_HSYNC_FRONT_PORCH          160
+#define CFG_DISP_PRI_HSYNC_SYNC_WIDTH            1
+#define CFG_DISP_PRI_HSYNC_BACK_PORCH           40
+#define CFG_DISP_PRI_HSYNC_FRONT_PORCH          24
 #define CFG_DISP_PRI_HSYNC_ACTIVE_HIGH          CFALSE
-#define CFG_DISP_PRI_VSYNC_SYNC_WIDTH           1
-#define CFG_DISP_PRI_VSYNC_BACK_PORCH           0
-#define CFG_DISP_PRI_VSYNC_FRONT_PORCH          23
+#define CFG_DISP_PRI_VSYNC_SYNC_WIDTH            1
+#define CFG_DISP_PRI_VSYNC_BACK_PORCH            4
+#define CFG_DISP_PRI_VSYNC_FRONT_PORCH           4
 #define CFG_DISP_PRI_VSYNC_ACTIVE_HIGH 	        CFALSE
 
 #define CFG_DISP_PRI_CLKGEN0_SOURCE             DPC_VCLK_SRC_PLL0
@@ -106,7 +105,7 @@
 #define	CFG_DISP_PRI_PIXEL_CLOCK				800000000/CFG_DISP_PRI_CLKGEN0_DIV
 
 #define	CFG_DISP_PRI_OUT_SWAPRB 				CFALSE
-#define CFG_DISP_PRI_OUT_FORMAT                 DPC_FORMAT_RGB666
+#define CFG_DISP_PRI_OUT_FORMAT                 DPC_FORMAT_RGB888
 #define CFG_DISP_PRI_OUT_YCORDER                DPC_YCORDER_CbYCrY
 #define CFG_DISP_PRI_OUT_INTERLACE              CFALSE
 #define CFG_DISP_PRI_OUT_INVERT_FIELD           CFALSE
@@ -115,14 +114,13 @@
 /*------------------------------------------------------------------------------
  * 	LVDS
  */
-#define CFG_DISP_LVDS_LCD_FORMAT             	LVDS_LCDFORMAT_JEIDA
-
+#define CFG_DISP_LVDS_LCD_FORMAT             	LVDS_LCDFORMAT_VESA
 
 /*------------------------------------------------------------------------------
  * 	PWM
  */
 #define CFG_LCD_PRI_PWM_CH						0
-#define CFG_LCD_PRI_PWM_FREQ					20000
+#define CFG_LCD_PRI_PWM_FREQ					30000
 #define CFG_LCD_PRI_PWM_DUTYCYCLE				50		/* (%) */
 
 /*------------------------------------------------------------------------------
@@ -130,7 +128,7 @@
  */
 #define	CFG_AUDIO_I2S0_MASTER_MODE				CTRUE	// CTRUE
 #define	CFG_AUDIO_I2S0_TRANS_MODE				0		// 0:I2S, 1:Left 2:Right justified */
-#define	CFG_AUDIO_I2S0_FRAME_BIT				48		// 32, 48
+#define	CFG_AUDIO_I2S0_FRAME_BIT				32		// 32, 48
 #define	CFG_AUDIO_I2S0_SAMPLE_RATE				48000
 #define	CFG_AUDIO_I2S0_PRE_SUPPLY_MCLK			0
 
@@ -157,13 +155,13 @@
  * 	I2C
  */
 #define CFG_I2C0_CLK							100000
-#define CFG_I2C1_CLK							100000
+#define CFG_I2C1_CLK							100000	/* TOUCH */
 #define CFG_I2C2_CLK							100000
 
 /*------------------------------------------------------------------------------
  * 	SPI
  */
-#define CFG_SPI0_CLK							100000000
+#define CFG_SPI0_CLK							10000000
 #define CFG_SPI1_CLK							10000000
 #define CFG_SPI2_CLK							10000000
 
@@ -174,13 +172,26 @@
 #define CFG_SPI0_CS_GPIO_MODE					0		/* 0 FSS CONTROL, 1: CS CONTRO GPIO MODE */
 #define CFG_SPI1_CS_GPIO_MODE					0	/* 0 FSS CONTROL, 1: CS CONTRO GPIO MODE */
 #define CFG_SPI2_CS_GPIO_MODE					0	/* 0 FSS CONTROL, 1: CS CONTRO GPIO MODE */
+/*------------------------------------------------------------------------------
+ *  MPEGTSIF
+ */
+#define CFG_MPEGTS_MASTER_MODE					1 /* 0: slave, 1: master */
+#define CFG_MPEGTS_SLAVE_MODE					0 /* 0: slave, 1: master */
+#define CFG_MPEGTS_CLOCKPOL						1 /* 0: falling, 1: rising */
+#define CFG_MPEGTS_DATAPOL						1 /* 0: data is low, 1: data is high */
+#define CFG_MPEGTS_SYNCPOL						1 /* 0: falling, 1: rising */
+#define CFG_MPEGTS_ERRORPOL						1 /* 0: falling, 1: rising */
+#define CFG_MPEGTS_DATAWIDTH					0 /* 0: 8bit, 1: 1bit */
+#define CFG_MPEGTS_WORDCNT						47 /* 1 ~ 64 */
 
 /*------------------------------------------------------------------------------
  * 	Keypad
  */
 
-#define CFG_KEYPAD_KEY_BUTTON					{ PAD_GPIO_A + 17, PAD_GPIO_A + 16, PAD_GPIO_ALV + 0 }
-#define CFG_KEYPAD_KEY_CODE						{ KEY_VOLUMEDOWN, KEY_VOLUMEUP, KEY_POWER }
+#define CFG_KEYPAD_KEY_BUTTON					{PAD_GPIO_D+30, PAD_GPIO_D+31, PAD_GPIO_E+4, \
+												PAD_GPIO_E+5, PAD_GPIO_E+6, PAD_GPIO_C+10} // PAD_GPIO_ALV+0}
+#define CFG_KEYPAD_KEY_CODE						{KEY_VOLUMEUP, KEY_VOLUMEDOWN, KEY_MUTE, \
+												KEY_HOME, KEY_F12, KEY_POWER }
 #define CFG_KEYPAD_REPEAT						CFALSE /* 0: Repeat Off 1 : Repeat On */
 
 /*------------------------------------------------------------------------------
@@ -189,33 +200,10 @@
 #define	CFG_SDMMC0_DETECT_IO					(PAD_GPIO_ALV + 1)	/* external cd */
 
 /*------------------------------------------------------------------------------
- *  MPEGTSIF
+ * 	NXE2000 PMIC
  */
-#define CFG_MPEGTS_MASTER_MODE					1
-#define CFG_MPEGTS_SLAVE_MODE					0
-#define CFG_MPEGTS_CLOCKPOL						1		/* 0: invert,     1: bypass */
-#define CFG_MPEGTS_DATAPOL						1		/* 0: active low, 1: active high */
-#define CFG_MPEGTS_SYNCPOL						1		/* 0: active low, 1: active high */
-#define CFG_MPEGTS_ERRORPOL						1		/* 0: active low, 1: active high */
-#define CFG_MPEGTS_DATAWIDTH					0		/* 0: 8bit, 1: 1bit */
-#define CFG_MPEGTS_WORDCNT						47		/* 1 ~ 64 */
-
-/*------------------------------------------------------------------------------
- *  MP2TS (Tuner & Demodule)
- */
-#define CFG_GPIO_DEMOD_0_IRQ_NUM				(-1)	//(IRQ_GPIO_C_START + 10)
-#define CFG_GPIO_DEMOD_0_RST_NUM				(PAD_GPIO_A + 23)
-#define CFG_GPIO_TUNER_0_RST_NUM				(-1)
-
-#define CFG_GPIO_DEMOD_1_IRQ_NUM				(-1)
-#define CFG_GPIO_DEMOD_1_RST_NUM				(-1)
-#define CFG_GPIO_TUNER_1_RST_NUM				(-1)
-
-/*------------------------------------------------------------------------------
- *  NXE2000 PMIC
- */
-#define CFG_GPIO_OTG_USBID_DET					(PAD_GPIO_B + 30)
-#define CFG_GPIO_OTG_VBUS_DET					(PAD_GPIO_B + 28)
+#define CFG_GPIO_OTG_USBID_DET					(PAD_GPIO_D + 16)
+#define CFG_GPIO_OTG_VBUS_DET					(-1)//(PAD_GPIO_D + 21)
 #define CFG_GPIO_PMIC_VUSB_DET					(PAD_GPIO_ALV + 2)
 #define CFG_GPIO_PMIC_LOWBAT_DET				(PAD_GPIO_ALV + 3)		/* Critical low battery detect */
 #define CFG_GPIO_PMIC_INTR						(PAD_GPIO_ALV + 4)
@@ -242,6 +230,12 @@
 #define CFG_PWR_WAKEUP_MOD_ALIVE6				PWR_DECT_FALLINGEDGE
 #define CFG_PWR_WAKEUP_SRC_ALIVE7				CFALSE
 #define CFG_PWR_WAKEUP_MOD_ALIVE7				PWR_DECT_FALLINGEDGE
+
+/*
+ * Wakeup Source : RTC ALARM
+ * ifndef Enable ALARM Wakeup
+ */
+#define	CFG_PWR_WAKEUP_SRC_ALARM				CFALSE
 
 //------------------------------------------------------------------------------
 // Static Bus #0 ~ #9, NAND, IDE configuration
@@ -277,6 +271,6 @@
 //                      ( _name_ , bw, tACS tCOS tACC tSACC tOCH tCAH, wm, rb, wb )
 CFG_SYS_STATICBUS_CONFIG( STATIC0 ,  8,    1,   1,   6,    6,   1,   1,  1,  0,  0 )		// 0x0000_0000
 CFG_SYS_STATICBUS_CONFIG( STATIC1 ,  8,    6,   6,  32,   32,   6,   6,  1,  0,  0 )		// 0x0400_0000
-CFG_SYS_STATICBUS_CONFIG(    NAND ,  8,    0,   6,   10,    1,  4,   0,  1,  0,  0 )		// 0x2C00_0000, tOCH, tCAH must be greter than 0
+CFG_SYS_STATICBUS_CONFIG(    NAND ,  8,    0,   3,   9,    1,   3,   0,  1,  0,  0 )		// 0x2C00_0000, tOCH, tCAH must be greter than 0
 
 #endif /* __CFG_MAIN_H__ */

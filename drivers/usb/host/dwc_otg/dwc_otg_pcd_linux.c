@@ -1059,21 +1059,21 @@ static int _complete(dwc_otg_pcd_t * pcd, void *ep_handle,
 #if 1
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,27)
 	ep = ep_from_handle(pcd, ep_handle);
-    if (GET_CORE_IF(pcd)->dma_enable) {
-        if (req->length != 0) {
-            dwc_otg_device_t *otg_dev = gadget_wrapper->pcd->otg_dev;
-            struct device *dev = NULL;
+	if (GET_CORE_IF(pcd)->dma_enable) {
+		if (req->length != 0) {
+			dwc_otg_device_t *otg_dev = gadget_wrapper->pcd->otg_dev;
+			struct device *dev = NULL;
 
-            if (otg_dev != NULL)
-                dev = DWC_OTG_OS_GETDEV(otg_dev->os_dep);
+			if (otg_dev != NULL)
+				dev = DWC_OTG_OS_GETDEV(otg_dev->os_dep);
 
-            // psw0523 add
-            if (req->dma != DWC_DMA_ADDR_INVALID)
-                dma_unmap_single(dev, req->dma, req->length,
-                        ep->dwc_ep.is_in ?
-                        DMA_TO_DEVICE: DMA_FROM_DEVICE);
-        }
-    }
+			// psw0523 add
+			if (req->dma != DWC_DMA_ADDR_INVALID)
+				dma_unmap_single(dev, req->dma, req->length,
+						ep->dwc_ep.is_in ?
+						DMA_TO_DEVICE: DMA_FROM_DEVICE);
+		}
+	}
 #endif
 #endif
 
@@ -1406,6 +1406,7 @@ int pcd_init(dwc_bus_dev_t *_dev)
 	/*
 	 * Setup interupt handler
 	 */
+#ifdef PLATFORM_INTERFACE
 	DWC_DEBUGPL(DBG_ANY, "registering handler for irq%d\n",
                     platform_get_irq(_dev, 0));
 	retval = request_irq(platform_get_irq(_dev, 0), dwc_otg_pcd_irq,
@@ -1417,6 +1418,18 @@ int pcd_init(dwc_bus_dev_t *_dev)
 		free_wrapper(gadget_wrapper);
 		return -EBUSY;
 	}
+#else
+	DWC_DEBUGPL(DBG_ANY, "registering handler for irq%d\n",
+                    _dev->irq);
+	retval = request_irq(_dev->irq, dwc_otg_pcd_irq,
+			     IRQF_SHARED | IRQF_DISABLED,
+			     gadget_wrapper->gadget.name, otg_dev->pcd);
+	if (retval != 0) {
+		DWC_ERROR("request of irq%d failed\n", _dev->irq);
+		free_wrapper(gadget_wrapper);
+		return -EBUSY;
+	}
+#endif
 
 	dwc_otg_pcd_start(gadget_wrapper->pcd, &fops);
 
@@ -1454,7 +1467,11 @@ void pcd_remove(dwc_bus_dev_t *_dev)
 	/*
 	 * Free the IRQ
 	 */
+#ifdef PLATFORM_INTERFACE
 	free_irq(platform_get_irq(_dev, 0), pcd);
+#else
+	free_irq(_dev->irq, pcd);
+#endif
 	dwc_otg_pcd_remove(otg_dev->pcd);
 	free_wrapper(gadget_wrapper);
 	otg_dev->pcd = 0;

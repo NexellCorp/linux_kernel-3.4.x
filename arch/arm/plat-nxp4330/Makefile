@@ -23,6 +23,9 @@ ifeq ($(CONFIG_PLAT_NXP4330_MORPHEUS),y)
 PLATBOARD :=morpheus
 endif
 
+ifeq ($(CONFIG_PLAT_NXP4330_SECRET),y)
+PLATBOARD :=secret
+endif
 #
 # Build options
 #
