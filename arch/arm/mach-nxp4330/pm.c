@@ -227,7 +227,7 @@ static void print_wake_event(void)
 static void suspend_cores(suspend_state_t stat)
 {
 	unsigned int core = 0, clamp = 0;
-	unsigned int reset = 0, clock = 0;
+	unsigned int reset = 0;
 	int cpu = 1, num = nr_cpu_ids;
 
 	for (; num > cpu; cpu++) {
@@ -253,8 +253,12 @@ static void suspend_cores(suspend_state_t stat)
 			NX_TIEOFF_Set(clamp, 1);
 			mdelay(1);
 			NX_TIEOFF_Set(core, 1);
-		} else {
-			clock  = TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CPUCLKOFF;
+			PM_DBGOUT("Power off cpu.%d\n", cpu);
+		}
+#if (0)
+		/* reset core */
+		else {
+			unsigned int clock = TIEOFFINDEX_OF_CORTEXA9MP_TOP_QUADL2C_CPUCLKOFF;
 			clock += cpu;
 
 			NX_TIEOFF_Set(core, 0);
@@ -270,8 +274,9 @@ static void suspend_cores(suspend_state_t stat)
 			NX_RSTCON_SetnRST(reset, RSTCON_nENABLE);
 			mdelay(1);
 			NX_TIEOFF_Set(clock, 0);
+			PM_DBGOUT("Power on cpu.%d\n", cpu);
 		}
-		PM_DBGOUT("Power %s cpu.%d\n", SUSPEND_SUSPEND==stat ? "off":"on", cpu);
+#endif
 	}
 }
 
