@@ -503,6 +503,10 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 		}
 #endif
 
+		/* for managing erased-page bitflip. what about power-cut off fail? */
+		if (is_erasedpage)
+			memset (buf, 0xff, mtd->writesize);
+
 		NAND_PROF_END(&nand_read, N_READPAGE);
 
 		NAND_PROF_REPORT(&nand_read, L_LOGIC);
