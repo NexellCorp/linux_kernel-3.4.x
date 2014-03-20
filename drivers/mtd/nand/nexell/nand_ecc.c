@@ -231,46 +231,123 @@ static int nand_sw_ecc_verify_buf(struct mtd_info *mtd, const uint8_t *buf, int 
 }
 
 
-#ifdef _TIME_ELAPSE_
+#ifdef NXP_NAND_PROFILE
 
-typedef char (*__msg_t)[64];
+#define N_READPAGE				1
+#define N_RANDOMIZE				9
+#define MAX_FEATURE				10
 
-#define P_TIME_START(A) \
-	do { \
-			iter = 0; \
-			memset(nxp->timeelapse, 0, PAGE_SIZE); \
-			A = ktime_get(); \
-	} while (0);
+#define N_READOOB				101
+#define N_READSECT				102
+#define N_DECWAIT				103
+#define N_LOCATION				104
+#define N_CORRECTION			105
+#define N_LOADELP				106
 
-#define P_TIME(LOGIC, A, B)	\
-	do { \
-			B = ktime_get(); \
-			sprintf(((__msg_t)(nxp->timeelapse))[iter++], "%20s [%lldus]", LOGIC, ktime_to_us(ktime_sub(B, A))); \
-			A = B; \
+
+
+const char *nand_logic_str[] = {
+	[N_READPAGE]		= "READ PAGE",
+	[N_RANDOMIZE]		= "DERANDOMIZE",
+
+	[N_READOOB]			= "READ OOB",
+	[N_READSECT]		= "READ SECT",
+	[N_DECWAIT]			= "WAIT DECODE",
+	[N_LOADELP]			= "LOAD ELP",
+	[N_LOCATION]		= "LOCATION",
+	[N_CORRECTION]		= "CORRECTION",
+};
+
+enum nand_prof_level { L_FEATURE, L_LOGIC };
+
+typedef struct logic_prof {
+	int					logic;
+	ktime_t				ts;
+	ktime_t				te;
+	int					open;
+} logic_prof_t;
+
+typedef struct nand_prof {
+	const char				*prof_name;
+	int						nr_prof;
+	logic_prof_t			profs[256];
+	enum nand_prof_level	prof_level;
+} nand_prof_t;
+
+#define __RAW_NAND_PROFILE_INITIALIZER(name)	\
+	{											\
+		.prof_name = __stringify(name),				\
+		.nr_prof = 0								\
+	}
+
+#define DEFINE_NAND_PROFILE(x)		nand_prof_t x = (nand_prof_t) __RAW_NAND_PROFILE_INITIALIZER(x)
+
+
+#define NAND_PROF_INIT(p)		\
+	do {							\
+		(p)->nr_prof = 0; \
 	} while (0)
 
-#define P_TIME_DONE() \
+/* ktime_to_ms, ktime_to_us, ktime_to_ns selection? */
+#define NAND_PROF_START(p, l)	\
 	do { \
-			int i; \
-			if ((__p_once++ % 1000)) break; \
-			for (i = 0; i < iter; ) { \
-				printk("%20s", ((__msg_t)(nxp->timeelapse))[i++]); \
-				printk("%20s", ((__msg_t)(nxp->timeelapse))[i++]); \
-				printk("%20s", ((__msg_t)(nxp->timeelapse))[i++]); \
-				printk("%20s", ((__msg_t)(nxp->timeelapse))[i++]); \
-				printk("\n"); \
+		int nr_prof = (p)->nr_prof++; \
+		logic_prof_t *lp = &((p)->profs)[nr_prof]; \
+		lp->logic = l; \
+		lp->ts = ktime_get(); \
+		lp->open = 1; \
+	} while (0)
+
+#define NAND_PROF_END(p, l)	\
+	do { \
+		int i; \
+		logic_prof_t *lp; \
+		for (i = (p)->nr_prof - 1; i >= 0; i--) { \
+			lp = &((p)->profs[i]); \
+			if (lp->logic == l && lp->open) {\
+				lp->te = ktime_get();  \
+				lp->open = 0; \
+				break; \
 			} \
+		}\
+	} while (0)
+
+#define NAND_PROF_REPORT(p, lvl) \
+	do { \
+		int i; \
+		logic_prof_t *lp; \
+		\
+		printk ("\t[%s]\n", (p)->prof_name); \
+		printk ("---------------------------------------------\n"); \
+		for (i = 0; i < (p)->nr_prof; i++) { \
+			lp = &((p)->profs[i]); \
+			\
+			if (lvl == L_FEATURE) { \
+				if (lp->logic > MAX_FEATURE ) continue;\
+			} \
+			if (!lp->open) {\
+				printk ("\t\t%20s\t[%lldus]\n", nand_logic_str[lp->logic], \
+						ktime_to_us(ktime_sub(lp->te, lp->ts))); \
+			} \
+		} \
+		(p)->nr_prof = 0; \
 	} while (0)
 #else
 
-#define P_TIME_START(A)			do {} while (0)
-#define P_TIME(LOGIC, A, B)		do {} while (0)
-#define P_TIME_DONE()			do {} while (0)
+#define NAND_PROF_INIT(p)					do {} while (0)
+#define NAND_PROF_START(p, l)				do {} while (0)
+#define NAND_PROF_END(p, l)					do {} while (0)
+#define NAND_PROF_REPORT(p, lvl)			do {} while (0)
 
-#endif
+#endif /* NXP_NAND_PROFILE */
 
 static uint32_t  eccbuff[ECC_HW_MAX_BYTES/4];
 static int errpos[ECC_HW_BITS];
+
+#ifdef NXP_NAND_PROFILE
+static DEFINE_NAND_PROFILE(nand_read);
+static int profile_once = 1;
+#endif
 
 static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 				uint8_t *buf, int oob_required, int page)
@@ -295,11 +372,7 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 	int is_erasedpage = 0;
 	struct nxp_nand *nxp = mtd_to_nxp(mtd);
 
-#ifdef _TIME_ELAPSE_
-	ktime_t time_start, time_end;
-	int iter;
-	static int __p_once = 1;
-#endif
+	NAND_PROF_INIT(&nand_read);
 
 	DBGOUT("%s, page=%d, ecc mode=%d, bytes=%d, page size=%d, step=%d\n",
 		__func__, page, ECC_HW_BITS, eccbytes, mtd->writesize, eccsteps);
@@ -312,8 +385,9 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 #endif
 		is_erasedpage = 0;
 
-		P_TIME_START(time_start);
+		NAND_PROF_START(&nand_read, N_READPAGE);
 
+		NAND_PROF_START(&nand_read, N_READOOB);
 		if (512 >= mtd->writesize) {
 			chip->ecc.read_oob(mtd, chip, page);
 			chip->cmdfunc(mtd, NAND_CMD_READ0, 0x00, page);
@@ -322,10 +396,9 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 			chip->read_buf(mtd, chip->oob_poi, mtd->oobsize);
 			chip->cmdfunc(mtd, NAND_CMD_READ0, 0, page);
 		}
+		NAND_PROF_END(&nand_read, N_READOOB);
 
 		for (n = 0; eccsteps; eccsteps--, p += eccsize) {
-
-			P_TIME("OOB COPY", time_start, time_end);
 
 			memset (eccbuff, 0x00, sizeof eccbuff);
 
@@ -336,14 +409,15 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 			__ecc_reset_decoder();	/* discon syndrome */
 			__ecc_write_ecc_decode((unsigned int*)ecccode, eccbytes);
 			__ecc_decode_enable(eccsize);
-			P_TIME("before read_buf", time_start, time_end);
 
 			/* read data */
+			NAND_PROF_START(&nand_read, N_READSECT);
 			chip->read_buf(mtd, p, eccsize);
+			NAND_PROF_END(&nand_read, N_READSECT);
 
-			P_TIME("after read_buf", time_start, time_end);
+			NAND_PROF_START(&nand_read, N_DECWAIT);
 			__ecc_wait_for_decode();
-			P_TIME("dec done", time_start, time_end);
+			NAND_PROF_END(&nand_read, N_DECWAIT);
 
 			err = __ecc_decode_error();
 			if (err) {
@@ -357,12 +431,13 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 
 				__ecc_start_correct(eccsize);
 
+				NAND_PROF_START(&nand_read, N_LOADELP);
 #ifdef CFG_NAND_ECCIRQ_MODE
 				wait_for_location_done(mtd);
 #else
 				__ecc_wait_for_correct();
 #endif
-				P_TIME("before correct", time_start, time_end);
+				NAND_PROF_END(&nand_read, N_LOADELP);
 
 #if (0)
 				if (((_pNCTRL->NFECCSTATUS & NX_NFECCSTATUS_ELPERR) >>  16) >= chip->ecc.strength)
@@ -373,7 +448,9 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 #endif
 
 				/* correct Error */
+				NAND_PROF_START(&nand_read, N_LOCATION);
 				errcnt = __ecc_get_err_location((unsigned int *)errpos);
+				NAND_PROF_END(&nand_read, N_LOCATION);
 				if (0 >= errcnt) {
 					ERROUT("page %d step %2d ecc error, can't %s ...\n",
 						page, (chip->ecc.steps-eccsteps), 0==errcnt?"detect":"correct");
@@ -386,6 +463,8 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 					printk("read retry page %d, retry: %d \n", page, retry);
 					goto retry_rd;	/* EXIT */
 				} else {
+					NAND_PROF_START(&nand_read, N_CORRECTION);
+
 					ECCERR("page %d step %2d, ecc error %2d\n", page, (chip->ecc.steps-eccsteps), errcnt);
 					for (k = 0; errcnt > k; k++) {
 						errdat = (uint32_t*)p;
@@ -408,6 +487,8 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 					mtd->ecc_stats.corrected += errcnt;
 					#endif
 #endif
+
+					NAND_PROF_END(&nand_read, N_CORRECTION);
 				}
 			}
 		}
@@ -415,13 +496,16 @@ static int nand_hw_ecc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 #ifdef CONFIG_NAND_RANDOMIZER
 		if (!is_erasedpage)
 		{
+			NAND_PROF_START(&nand_read, N_RANDOMIZE);
 			randomizer_page (page & nxp->pages_per_block_mask, buf, mtd->writesize);
 			//printk("  page: %d ------->    derandomize\n", page);
+			NAND_PROF_END(&nand_read, N_RANDOMIZE);
 		}
 #endif
 
-		P_TIME("ALL DONE", time_start, time_end);
-		P_TIME_DONE();
+		NAND_PROF_END(&nand_read, N_READPAGE);
+
+		NAND_PROF_REPORT(&nand_read, L_LOGIC);
 
 #ifndef NO_ISSUE_MTD_BITFLIP_PATCH	/* freestyle@2013.09.26 */
 		mtd->ecc_stats.corrected += corrected;
@@ -711,15 +795,6 @@ int nand_hw_ecc_init_device(struct mtd_info *mtd)
 
 	nxp->eccmode = eccmode;
 
-#ifdef _TIME_ELAPSE_
-	if (!nxp->timeelapse)
-		nxp->timeelapse = kzalloc(PAGE_SIZE, GFP_KERNEL);
-	if (!nxp->timeelapse) {
-		ERROUT("page alloc failed\n");
-		goto _ecc_fail;
-	}
-#endif
-
 	iNX_BCH_VAR_M	 = eccidx;			/* 13 or 14 */
 	iNX_BCH_VAR_T	 = ECC_HW_BITS;	/* 4, 8, 12, 16, 24, 40, 60 ... */
 	iNX_BCH_VAR_TMAX = (eccsize == 512 ? 24 : 60);
@@ -749,13 +824,6 @@ _ecc_fail:
 
 int nand_hw_ecc_fini_device(struct mtd_info *mtd)
 {
-#ifdef _TIME_ELAPSE_
-	struct nxp_nand *nxp = mtd_to_nxp(mtd);
-
-	if (nxp->timeelapse)
-		kfree (nxp->timeelapse);
-#endif
-
 	return 0;
 }
 #endif /* CONFIG_MTD_NAND_ECC_HW */

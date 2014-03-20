@@ -74,7 +74,7 @@
 #define NX_NFECCCTRL_PDATACNT		10	// number of parity bit (0xFF)
 #define NX_NFECCCTRL_DATACNT		0	// nand data count value(write) (0x3FF)
 
-// #define _TIME_ELAPSE_
+//#define NXP_NAND_PROFILE
 
 struct nxp_nand {
 	struct mtd_info mtd;
@@ -93,9 +93,6 @@ struct nxp_nand {
 #endif
 #ifdef CONFIG_MTD_NAND_VERIFY_WRITE
 	uint8_t *verify_page;
-#endif
-#ifdef _TIME_ELAPSE_
-	char *timeelapse;
 #endif
 };
 
