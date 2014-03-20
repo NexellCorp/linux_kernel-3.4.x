@@ -186,7 +186,7 @@
 /*------------------------------------------------------------------------------
  * 	SDHC
  */
-#define	CFG_SDMMC0_DETECT_IO					(PAD_GPIO_B + 24)	/* external cd */
+#define	CFG_SDMMC0_DETECT_IO					(PAD_GPIO_ALV + 1)	/* external cd */
 
 /*------------------------------------------------------------------------------
  *  MPEGTSIF
