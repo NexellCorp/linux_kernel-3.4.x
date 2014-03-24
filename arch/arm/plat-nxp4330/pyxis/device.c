@@ -1186,13 +1186,23 @@ static struct spi_board_info spi_plat_board[] __initdata = {
  * DW MMC board config
  */
 #if defined(CONFIG_MMC_DW)
+
+#if defined(CONFIG_BROADCOM_WIFI) || defined(CONFIG_BCMDHD)
+static void (*wifi_status_cb)(struct platform_device *, int state);
+#endif
 int _dwmci_ext_cd_init(void (*notify_func)(struct platform_device *, int state))
 {
+#if defined(CONFIG_BROADCOM_WIFI) || defined(CONFIG_BCMDHD)
+    wifi_status_cb = notify_func;
+#endif
 	return 0;
 }
 
 int _dwmci_ext_cd_cleanup(void (*notify_func)(struct platform_device *, int state))
 {
+#if defined(CONFIG_BROADCOM_WIFI) || defined(CONFIG_BCMDHD)
+    wifi_status_cb = NULL;
+#endif
 	return 0;
 }
 
@@ -1259,7 +1269,69 @@ static struct dw_mci_board _dwmci1_data = {
 };
 #endif
 
+
 #endif /* CONFIG_MMC_DW */
+
+/*
+ * broadcom wifi device
+ */
+#if defined(CONFIG_BROADCOM_WIFI) || defined(CONFIG_BCMDHD)
+
+#include <linux/if.h>
+#include <linux/skbuff.h>
+#include <linux/wlan_plat.h>
+
+static int _wifi_power(int on)
+{
+    printk("%s %d\n", __func__, on);
+    return 0;
+}
+
+static int _wifi_reset(int on)
+{
+    printk("%s %d\n", __func__, on);
+    return 0;
+}
+
+extern struct platform_device dwmci_dev_ch0;
+static int _wifi_set_carddetect(int val)
+{
+    printk("%s %d\n", __func__, val);
+
+    if (wifi_status_cb)
+        wifi_status_cb(&dwmci_dev_ch0, val);
+    else
+        printk("%s: Nobody to notify\n", __func__);;
+    return 0;
+}
+
+static unsigned char _wifi_mac_addr[IFHWADDRLEN] = { 0, 0x90, 0x4c, 0, 0, 0 };
+
+static int _wifi_get_mac_addr(unsigned char *buf)
+{
+    memcpy(buf, _wifi_mac_addr, IFHWADDRLEN);
+    return 0;
+}
+
+static struct wifi_platform_data pyxis_wifi_control = {
+    .set_power          = _wifi_power,
+    .set_reset          = _wifi_reset,
+    .set_carddetect     = _wifi_set_carddetect,
+    .mem_prealloc       = NULL,
+    .get_mac_addr       = _wifi_get_mac_addr,
+    /*.get_country_code   = _wifi_get_country_code,*/
+    .get_country_code   = NULL,
+};
+
+static struct platform_device bcm_wifi_device = {
+     .name  = "bcmdhd_wlan",
+     .id    = 0,
+     .dev   = {
+         .platform_data = &pyxis_wifi_control,
+     },
+};
+#endif
+
 /*------------------------------------------------------------------------------
  * register board platform devices
  */
@@ -1350,6 +1422,11 @@ void __init nxp_board_devices_register(void)
 #if defined(CONFIG_SENSORS_STK831X) || defined(CONFIG_SENSORS_STK831X_MODULE)
 	printk("plat: add g-sensor stk831x\n");
 	i2c_register_board_info(STK831X_I2C_BUS, &stk831x_i2c_bdi, 1);
+#endif
+
+#if defined(CONFIG_BROADCOM_WIFI) || defined(CONFIG_BCMDHD)
+    printk("plat: register broadcom wifi device\n");
+    platform_device_register(&bcm_wifi_device);
 #endif
 
 	/* END */
