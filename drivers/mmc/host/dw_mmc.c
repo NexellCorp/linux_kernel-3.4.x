@@ -844,16 +844,16 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, int force)
 
 	if ((slot->clock != host->current_speed) || force) {
 		do {
-			div = host->bus_hz / slot->clock;
-			if ((host->bus_hz % slot->clock) &&
-				(host->bus_hz > slot->clock))
+			div = (host->bus_hz/2) / slot->clock;
+			if (((host->bus_hz/2) % slot->clock) &&
+				((host->bus_hz/2) > slot->clock))
 				/*
 				 * move the + 1 after the divide to prevent
 				 * over-clocking the card.
 				 */
 				div++;
 
-			div = (host->bus_hz != slot->clock) ?
+			div = ((host->bus_hz/2) != slot->clock) ?
 				DIV_ROUND_UP(div, 2) : 0;
 
 			/* CLKDIV limitation is 0xFF */
@@ -861,11 +861,11 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, int force)
 				div = 0xFF;
 
 			actual_speed = div ?
-				(host->bus_hz / div) >> 1 : host->bus_hz;
+				((host->bus_hz/2) / div) >> 1 : host->bus_hz;
 
 			/* Change SCLK_MMC */
 			if (actual_speed > slot->clock &&
-				host->bus_hz != 0 && !reset_div) {
+				(host->bus_hz/2) != 0 && !reset_div) {
 				dev_err(&host->dev,
 					"Actual clock is high than a reqeust clock."
 					"Source clock is needed to change\n");
@@ -878,7 +878,7 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, int force)
 		dev_info(&slot->mmc->class_dev,
 			 "Bus speed (slot %d) = %dHz (slot req %dHz, actual %dHZ"
 			 " div = %d)\n", slot->id, host->bus_hz, slot->clock,
-			 div ? ((host->bus_hz / div) >> 1) : host->bus_hz, div);
+			 div ? (((host->bus_hz/2) / div) >> 1) : host->bus_hz/2, div);
 
 		/* disable clock */
 		mci_writel(host, CLKENA, 0);
