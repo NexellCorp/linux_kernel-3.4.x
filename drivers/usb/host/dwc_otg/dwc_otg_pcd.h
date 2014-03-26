@@ -162,7 +162,7 @@ typedef struct dwc_otg_pcd_request {
 DWC_CIRCLEQ_HEAD(req_list, dwc_otg_pcd_request);
 
 //--> kook - [20130910] fixed on 4330
-#if defined(CONFIG_CACHE_L2X0) && defined(CONFIG_ARCH_NXP4330)
+#if 0 //defined(CONFIG_CACHE_L2X0) && defined(CONFIG_ARCH_NXP4330)
 typedef struct dwc_otg_buf_info {
     uint8_t   *dw_align_buf;
     dwc_dma_t  dw_align_buf_dma;
@@ -195,7 +195,7 @@ typedef struct dwc_otg_pcd_ep {
 	dwc_ep_t dwc_ep;
 
 //--> kook - [20130910] fixed on 4330
-#if defined(CONFIG_CACHE_L2X0) && defined(CONFIG_ARCH_NXP4330)
+#if 0 //defined(CONFIG_CACHE_L2X0) && defined(CONFIG_ARCH_NXP4330)
 	dwc_otg_buf_info_t ep_buf_info[MAX_EPS_CHANNELS];
 #endif
 //<-- kook - [20130910] fixed on 4330

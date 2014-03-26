@@ -534,7 +534,7 @@ requeue_req:
 		DBG(cdev, "rx %p %d\n", req, req->actual);
 		xfer = (req->actual < count) ? req->actual : count;
 		r = xfer;
-		if (copy_to_user(buf, req->buf, xfer))
+		if (xfer && copy_to_user(buf, req->buf, xfer))
 			r = -EFAULT;
 	} else
 		r = -EIO;
@@ -984,6 +984,9 @@ static int mtp_open(struct inode *ip, struct file *fp)
 
 static int mtp_release(struct inode *ip, struct file *fp)
 {
+#ifdef CONFIG_PM
+	if (_mtp_dev)
+#endif
 	mtp_unlock(&_mtp_dev->open_excl);
 	return 0;
 }
