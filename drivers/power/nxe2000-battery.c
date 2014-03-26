@@ -3218,8 +3218,9 @@ static void charger_irq_work(struct work_struct *work)
 				val = (info->ch_icchg << 6) + info->ch_ichg;
 				nxe2000_write(info->dev->parent, CHGISET_REG, val);
 
-				val = (0x1 << NXE2000_POS_CHGCTL1_VADPCHGEN);
-				nxe2000_set_bits(info->dev->parent, CHGCTL1_REG, val);
+				val = (0x1 << NXE2000_POS_CHGCTL1_NOBATOVLIM)
+					| (0x1 << NXE2000_POS_CHGCTL1_VADPCHGEN);
+				nxe2000_write(info->dev->parent, CHGCTL1_REG, val);
 
 				return;
 			}

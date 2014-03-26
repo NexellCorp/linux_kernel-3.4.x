@@ -2485,7 +2485,7 @@ static void complete_ep(dwc_otg_pcd_ep_t * ep)
 				dwc_memcpy(req->buf, req->dw_align_buf, req->length); 
 
 //--> kook - [20130909] fixed on 4330
-#if defined(CONFIG_CACHE_L2X0) && defined(CONFIG_ARCH_NXP4330)
+#if 0 //defined(CONFIG_CACHE_L2X0) && defined(CONFIG_ARCH_NXP4330)
                 if (ep->ep_buf_info[ep->dwc_ep.num].dw_align_buf != NULL)
                     req->dw_align_buf = NULL;
 #endif

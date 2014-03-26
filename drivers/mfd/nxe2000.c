@@ -508,18 +508,16 @@ static void __devinit nxe2000_gpio_init(struct nxe2000 *nxe2000,
 
 		}
 
-
 		if (ret < 0)
 			dev_err(nxe2000->dev, "Gpio %d init "
 				"dir configuration failed: %d\n", i, ret);
-
 	}
 
 	nxe2000->gpio_chip.owner		= THIS_MODULE;
 	nxe2000->gpio_chip.label		= nxe2000->client->name;
 	nxe2000->gpio_chip.dev			= nxe2000->dev;
-	nxe2000->gpio_chip.base		= pdata->gpio_base;
-	nxe2000->gpio_chip.ngpio		= NXE2000_NR_GPIO;
+	nxe2000->gpio_chip.base			= pdata->gpio_base;
+	nxe2000->gpio_chip.ngpio		= pdata->num_gpioinit_data;	//NXE2000_NR_GPIO;
 	nxe2000->gpio_chip.can_sleep	= 1;
 
 	nxe2000->gpio_chip.direction_input	= nxe2000_gpio_input;
@@ -724,7 +722,8 @@ static int nxe2000_i2c_probe(struct i2c_client *client,
 
 	nxe2000_i2c_client = client;
 
-    pm_power_off = nxe2000_power_off;
+	backup_pm_power_off = pm_power_off;
+	pm_power_off = nxe2000_power_off;
 
 	return 0;
 

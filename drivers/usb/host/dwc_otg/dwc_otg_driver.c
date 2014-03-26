@@ -221,21 +221,21 @@ static struct dwc_otg_driver_module_params dwc_otg_module_params = {
 #else
     .dev_tx_fifo_size = {
         /* dev_tx_fifo_size */
-        0x80,
-        0x80,
-        0x80,
-        0x80,
-        0x80,
-        0x80,
-        0x80,
-        0x80,
-        0x80,
-        0x80,
-        0x80,
-        0x80,
-        0x80,
-        0x80,
-        0x80 
+        0x200,
+        0x200,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1 
             /* 15 */
     },
 #endif
@@ -714,6 +714,8 @@ extern unsigned int get_otg_mode(void);
 //static int dwc_otg_driver_remove(struct platform_device *_dev);
 static int dwc_otg_driver_probe(struct platform_device *_dev);
 static struct platform_device *s_pdev = NULL;
+static struct delayed_work      s_otg_reprobe_work;
+static struct workqueue_struct *s_otg_reprobe_wqueue;
 extern void dwc_udc_resume(void);
 extern void dwc_udc_suspend(void);
 
@@ -783,19 +785,34 @@ static int dwc_otg_driver_suspend(struct platform_device *_dev, pm_message_t sta
     return 0;
 }
 
+static void otg_reprobe_work(struct work_struct *work)
+{
+    dwc_otg_driver_probe(s_pdev);
+    dwc_udc_resume();
+}
+
 static int dwc_otg_driver_resume(struct platform_device *_dev)
 {
     PM_DBGOUT("+%s\n", __func__);
 
     if (s_pdev) {
-        dwc_udc_suspend();
-
-        dwc_otg_driver_remove(s_pdev);
-
-        dwc_otg_driver_probe(s_pdev);
+        otg_clk_enable();
+        otg_phy_init();
         mdelay(10);
 
-        dwc_udc_resume();
+        dwc_udc_suspend();
+        dwc_otg_driver_remove(s_pdev);
+
+        if (s_otg_reprobe_wqueue == NULL) {
+            s_otg_reprobe_wqueue
+                = create_singlethread_workqueue("otg_reprobe_work");
+            INIT_DELAYED_WORK_DEFERRABLE(&s_otg_reprobe_work,
+                                otg_reprobe_work);
+        }
+
+        queue_delayed_work(s_otg_reprobe_wqueue,
+                          &s_otg_reprobe_work,
+                          HZ);
     }
 
     PM_DBGOUT("-%s\n", __func__);

@@ -145,7 +145,7 @@ void dwc_otg_request_nuke(dwc_otg_pcd_ep_t * ep)
 
 	ep->stopped = 1;
 
-#if defined(CONFIG_CACHE_L2X0) && defined(CONFIG_ARCH_NXP4330)
+#if 0 //defined(CONFIG_CACHE_L2X0) && defined(CONFIG_ARCH_NXP4330)
     if ((ep->ep_buf_info[ep->dwc_ep.num].dw_align_buf != NULL)
         && (!ep->dwc_ep.is_in))
     {
@@ -159,7 +159,7 @@ void dwc_otg_request_nuke(dwc_otg_pcd_ep_t * ep)
 	while (!DWC_CIRCLEQ_EMPTY(&ep->queue)) {
 		req = DWC_CIRCLEQ_FIRST(&ep->queue);
 
-#if defined(CONFIG_CACHE_L2X0) && defined(CONFIG_ARCH_NXP4330)
+#if 0 //defined(CONFIG_CACHE_L2X0) && defined(CONFIG_ARCH_NXP4330)
         if (!ep->dwc_ep.is_in)
             req->dw_align_buf = 0;
 #endif
@@ -2182,7 +2182,7 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 	req->priv = req_handle;
 
 //--> kook - [20130910] fixed on 4330
-#if defined(CONFIG_CACHE_L2X0) && defined(CONFIG_ARCH_NXP4330)
+#if 0 //defined(CONFIG_CACHE_L2X0) && defined(CONFIG_ARCH_NXP4330)
 	if ((GET_CORE_IF(pcd)->dma_enable
 		&& (!ep->dwc_ep.is_in)
 		&& (buflen != 0)
@@ -2460,7 +2460,7 @@ int dwc_otg_pcd_ep_dequeue(dwc_otg_pcd_t * pcd, void *ep_handle,
 	if (!DWC_CIRCLEQ_EMPTY_ENTRY(req, queue_entry)) {
 
 //--> kook - [20130910] fixed on 4330
-#if defined(CONFIG_CACHE_L2X0) && defined(CONFIG_ARCH_NXP4330)
+#if 0 //defined(CONFIG_CACHE_L2X0) && defined(CONFIG_ARCH_NXP4330)
         if (!ep->dwc_ep.is_in)
             req->dw_align_buf = 0;
 #endif
