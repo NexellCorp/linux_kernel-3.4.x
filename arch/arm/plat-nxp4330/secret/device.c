@@ -149,6 +149,122 @@ static struct platform_device *fb_devices[] = {
 };
 #endif /* CONFIG_FB_NEXELL */
 
+
+/*------------------------------------------------------------------------------
+ * DISPLAY MIPI device
+ */
+#if defined (CONFIG_NEXELL_DISPLAY_MIPI)
+#include <linux/delay.h>
+
+#define	MIPI_BITRATE_750M
+
+#ifdef MIPI_BITRATE_1G
+#define	PLLPMS		0x033E8
+#define	BANDCTL		0xF
+#elif defined(MIPI_BITRATE_750M)
+#define	PLLPMS		0x043E8
+#define	BANDCTL		0xC
+#elif defined(MIPI_BITRATE_420M)
+#define	PLLPMS		0x2231
+#define	BANDCTL		0x7
+#elif defined(MIPI_BITRATE_402M)
+#define	PLLPMS		0x2219
+#define	BANDCTL		0x7
+#endif
+#define	PLLCTL		0
+#define	DPHYCTL		0
+
+static void mipilcd_write( unsigned int id, unsigned int data0, unsigned int data1 )
+{
+    U32 index = 0;
+    volatile NX_MIPI_RegisterSet* pmipi =
+    	(volatile NX_MIPI_RegisterSet*)IO_ADDRESS(NX_MIPI_GetPhysicalAddress(index));
+    pmipi->DSIM_PKTHDR = id | (data0<<8) | (data1<<16);
+}
+
+static int LD070WX3_SL01(int width, int height, void *data)
+{
+	msleep(10);
+    mipilcd_write(0x15, 0xB2, 0x7D);
+    mipilcd_write(0x15, 0xAE, 0x0B);
+    mipilcd_write(0x15, 0xB6, 0x18);
+    mipilcd_write(0x15, 0xD2, 0x64);
+	msleep(10);
+
+	return 0;
+}
+
+static struct disp_vsync_info mipi_vsync_param = {
+	.h_active_len	= CFG_DISP_PRI_RESOL_WIDTH,
+	.h_sync_width	= CFG_DISP_PRI_HSYNC_SYNC_WIDTH,
+	.h_back_porch	= CFG_DISP_PRI_HSYNC_BACK_PORCH,
+	.h_front_porch	= CFG_DISP_PRI_HSYNC_FRONT_PORCH,
+	.h_sync_invert	= CFG_DISP_PRI_HSYNC_ACTIVE_HIGH,
+	.v_active_len	= CFG_DISP_PRI_RESOL_HEIGHT,
+	.v_sync_width	= CFG_DISP_PRI_VSYNC_SYNC_WIDTH,
+	.v_back_porch	= CFG_DISP_PRI_VSYNC_BACK_PORCH,
+	.v_front_porch	= CFG_DISP_PRI_VSYNC_FRONT_PORCH,
+	.v_sync_invert	= CFG_DISP_PRI_VSYNC_ACTIVE_HIGH,
+	.pixel_clock_hz	= CFG_DISP_PRI_PIXEL_CLOCK,
+	.clk_src_lv0	= CFG_DISP_PRI_CLKGEN0_SOURCE,
+	.clk_div_lv0	= CFG_DISP_PRI_CLKGEN0_DIV,
+	.clk_src_lv1	= CFG_DISP_PRI_CLKGEN1_SOURCE,
+	.clk_div_lv1	= CFG_DISP_PRI_CLKGEN1_DIV,
+};
+
+static struct disp_syncgen_par mipi_syncgen_param = {
+#if 1
+	.delay_mask			= DISP_SYNCGEN_DELAY_RGB_PVD |
+						  DISP_SYNCGEN_DELAY_HSYNC_CP1 |
+					 	  DISP_SYNCGEN_DELAY_VSYNC_FRAM |
+					 	  DISP_SYNCGEN_DELAY_DE_CP,
+	.d_rgb_pvd			= 0,
+	.d_hsync_cp1		= 0,
+	.d_vsync_fram		= 0,
+	.d_de_cp2			= 7,
+	.vs_start_offset 	= CFG_DISP_PRI_HSYNC_FRONT_PORCH +
+						  CFG_DISP_PRI_HSYNC_SYNC_WIDTH +
+						  CFG_DISP_PRI_HSYNC_BACK_PORCH +
+						  CFG_DISP_PRI_RESOL_WIDTH - 1,
+	.ev_start_offset 	= CFG_DISP_PRI_HSYNC_FRONT_PORCH +
+						  CFG_DISP_PRI_HSYNC_SYNC_WIDTH +
+						  CFG_DISP_PRI_HSYNC_BACK_PORCH +
+						  CFG_DISP_PRI_RESOL_WIDTH - 1,
+	.vs_end_offset 		= 0,
+	.ev_end_offset 		= 0,
+#else
+	.interlace 		= CFG_DISP_PRI_MLC_INTERLACE,
+	.out_format		= CFG_DISP_PRI_OUT_FORMAT,
+	.invert_field 	= CFG_DISP_PRI_OUT_INVERT_FIELD,
+	.swap_RB		= CFG_DISP_PRI_OUT_SWAPRB,
+	.yc_order		= CFG_DISP_PRI_OUT_YCORDER,
+	.delay_mask		= DISP_SYNCGEN_DELAY_RGB_PVD|DISP_SYNCGEN_DELAY_HSYNC_CP1|DISP_SYNCGEN_DELAY_VSYNC_FRAM|DISP_SYNCGEN_DELAY_DE_CP,
+	.d_rgb_pvd		= 0,
+	.d_hsync_cp1	= 0,
+	.d_vsync_fram	= 0,
+	.d_de_cp2		= 7,
+	.vs_start_offset = (CFG_DISP_PRI_HSYNC_FRONT_PORCH + CFG_DISP_PRI_HSYNC_SYNC_WIDTH + CFG_DISP_PRI_HSYNC_BACK_PORCH + CFG_DISP_PRI_RESOL_WIDTH - 1),
+	.vs_end_offset	= 0,
+	.ev_start_offset = (CFG_DISP_PRI_HSYNC_FRONT_PORCH + CFG_DISP_PRI_HSYNC_SYNC_WIDTH + CFG_DISP_PRI_HSYNC_BACK_PORCH + CFG_DISP_PRI_RESOL_WIDTH - 1),
+	.ev_end_offset	= 0,
+	.vclk_select	= CFG_DISP_PRI_PADCLKSEL,
+	.clk_delay_lv0	= CFG_DISP_PRI_CLKGEN0_DELAY,
+	.clk_inv_lv0	= CFG_DISP_PRI_CLKGEN0_INVERT,
+	.clk_delay_lv1	= CFG_DISP_PRI_CLKGEN1_DELAY,
+	.clk_inv_lv1	= CFG_DISP_PRI_CLKGEN1_INVERT,
+	.clk_sel_div1	= CFG_DISP_PRI_CLKSEL1_SELECT,
+#endif
+};
+
+static struct disp_mipi_param mipi_param = {
+	.pllpms 	= PLLPMS,
+	.bandctl	= BANDCTL,
+	.pllctl		= PLLCTL,
+	.phyctl		= DPHYCTL,
+	.lcd_init	= LD070WX3_SL01
+};
+#endif
+
 /*------------------------------------------------------------------------------
  * backlight : generic pwm device
  */
@@ -800,6 +916,10 @@ void __init nxp_board_devices_register(void)
 #if defined (CONFIG_FB_NEXELL)
 	printk("plat: add framebuffer\n");
 	platform_add_devices(fb_devices, ARRAY_SIZE(fb_devices));
+#endif
+
+#if defined (CONFIG_NEXELL_DISPLAY_MIPI)
+	nxp_platform_disp_device_data(DISP_DEVICE_MIPI, &mipi_vsync_param, (void*)&mipi_param, &mipi_syncgen_param);
 #endif
 
 #if defined(CONFIG_MMC_DW)
