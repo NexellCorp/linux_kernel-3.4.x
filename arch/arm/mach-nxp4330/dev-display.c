@@ -164,7 +164,7 @@ static void __disp_lcd_dev_data(struct disp_vsync_info *vsync,
 					void *dev_par, struct disp_syncgen_par *sgpar)
 {
 	struct nxp_lcd_plat_data *plcd = &lcd_data;
-	struct disp_lcd_param *dst = (struct disp_lcd_param *)&lcd_data.dev_param;
+	struct disp_lcd_param *dst = (struct disp_lcd_param *)plcd->dev_param;
 	struct disp_lcd_param *src = dev_par;
 
 	if (src) {
@@ -236,7 +236,7 @@ static void __disp_lvds_dev_data(struct disp_vsync_info *vsync,
 				struct disp_lvds_param *dev_par, struct disp_syncgen_par *sgpar)
 {
 	struct nxp_lcd_plat_data *plcd = &lvds_data;
-	struct disp_lvds_param *dst = (struct disp_lvds_param *)&lvds_data.dev_param;
+	struct disp_lvds_param *dst = (struct disp_lvds_param *)plcd->dev_param;
 	struct disp_lvds_param *src = dev_par;
 
 	if (dev_par) {
@@ -319,7 +319,7 @@ static void __disp_mipi_dev_data(struct disp_vsync_info *vsync,
 {
 	struct nxp_lcd_plat_data *plcd = &mipi_data;
 	struct disp_mipi_param *src = dev_par;
-	struct disp_mipi_param *dst = (struct disp_mipi_param *)&mipi_data.dev_param;
+	struct disp_mipi_param *dst = (struct disp_mipi_param *)plcd->dev_param;
 
 	if (dev_par) {
 		SET_PARAM(src, dst, pllpms);
@@ -386,7 +386,7 @@ static void __disp_hdmi_dev_data(struct disp_vsync_info *vsync,
 {
 	struct nxp_lcd_plat_data *plcd = &hdmi_data;
 	struct disp_vsync_info *vsc = &__hdmi_vsync;
-	struct disp_hdmi_param *dst = (struct disp_hdmi_param *)&plcd->dev_param;
+	struct disp_hdmi_param *dst = (struct disp_hdmi_param *)plcd->dev_param;
 	struct disp_hdmi_param *src = dev_par;
 
 	if (dev_par) {
@@ -438,7 +438,7 @@ static void __disp_resc_dev_data(struct disp_vsync_info *vsync,
 {
 	struct nxp_lcd_plat_data *plcd = &resc_data;
 	struct disp_vsync_info *vsc = &__resc_vsync;
-	struct disp_resc_param *dst = (struct disp_resc_param *)&plcd->dev_param;
+	struct disp_resc_param *dst = (struct disp_resc_param *)plcd->dev_param;
 	struct disp_resc_param *src = dev_par;
 
 	if (dev_par) {
