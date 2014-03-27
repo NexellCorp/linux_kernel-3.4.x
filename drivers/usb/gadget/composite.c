@@ -20,6 +20,7 @@
 
 #include <linux/usb/composite.h>
 #include <asm/unaligned.h>
+#include <linux/wakelock.h>
 
 /*
  * The code in this file is utility code, used to build a gadget driver
@@ -64,6 +65,7 @@ module_param(iSerialNumber, charp, 0);
 MODULE_PARM_DESC(iSerialNumber, "SerialNumber string");
 
 static char composite_manufacturer[50];
+static struct wake_lock usb_config_wake_lock;
 
 /*-------------------------------------------------------------------------*/
 /**
@@ -570,6 +572,11 @@ static void device_qual(struct usb_composite_dev *cdev)
 }
 
 /*-------------------------------------------------------------------------*/
+void nxp_wake_lock_timeout(void)
+{
+	wake_lock_timeout(&usb_config_wake_lock, 1*HZ);
+}
+EXPORT_SYMBOL(nxp_wake_lock_timeout);
 
 static void reset_config(struct usb_composite_dev *cdev)
 {
@@ -584,6 +591,8 @@ static void reset_config(struct usb_composite_dev *cdev)
 		bitmap_zero(f->endpoints, 32);
 	}
 	cdev->config = NULL;
+
+	wake_lock_timeout(&usb_config_wake_lock, 1*HZ);
 }
 
 static int set_config(struct usb_composite_dev *cdev,
@@ -605,6 +614,9 @@ static int set_config(struct usb_composite_dev *cdev,
 				 */
 				if (cdev->config)
 					reset_config(cdev);
+
+				wake_lock(&usb_config_wake_lock);
+
 				result = 0;
 				break;
 			}
@@ -1499,6 +1511,8 @@ static int composite_bind(struct usb_gadget *gadget)
 	status = device_create_file(&gadget->dev, &dev_attr_suspended);
 	if (status)
 		goto fail;
+
+	wake_lock_init(&usb_config_wake_lock, WAKE_LOCK_SUSPEND, "usb_config_wake_lock");
 
 	INFO(cdev, "%s ready\n", composite->name);
 	return 0;

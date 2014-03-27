@@ -718,6 +718,7 @@ static struct delayed_work      s_otg_reprobe_work;
 static struct workqueue_struct *s_otg_reprobe_wqueue;
 extern void dwc_udc_resume(void);
 extern void dwc_udc_suspend(void);
+extern void nxp_wake_lock_timeout(void);
 
 #if 0   //ndef CONFIG_SUSPEND_IDLE
 static struct notifier_block s_pm_notify;
@@ -789,6 +790,7 @@ static void otg_reprobe_work(struct work_struct *work)
 {
     dwc_otg_driver_probe(s_pdev);
     dwc_udc_resume();
+    nxp_wake_lock_timeout();
 }
 
 static int dwc_otg_driver_resume(struct platform_device *_dev)
