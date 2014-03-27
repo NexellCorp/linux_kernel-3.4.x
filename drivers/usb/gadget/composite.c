@@ -65,6 +65,7 @@ module_param(iSerialNumber, charp, 0);
 MODULE_PARM_DESC(iSerialNumber, "SerialNumber string");
 
 static char composite_manufacturer[50];
+static bool usb_config_wake_lock_held;
 static struct wake_lock usb_config_wake_lock;
 
 /*-------------------------------------------------------------------------*/
@@ -1512,7 +1513,10 @@ static int composite_bind(struct usb_gadget *gadget)
 	if (status)
 		goto fail;
 
-	wake_lock_init(&usb_config_wake_lock, WAKE_LOCK_SUSPEND, "usb_config_wake_lock");
+	if (usb_config_wake_lock_held == false) {
+		wake_lock_init(&usb_config_wake_lock, WAKE_LOCK_SUSPEND, "usb_config_wake_lock");
+		usb_config_wake_lock_held = true;
+	}
 
 	INFO(cdev, "%s ready\n", composite->name);
 	return 0;
