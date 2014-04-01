@@ -292,6 +292,8 @@ static int ashmem_mmap(struct file *file, struct vm_area_struct *vma)
 	/* requested protection bits must match our allowed protection mask */
 	if (unlikely((vma->vm_flags & ~calc_vm_prot_bits(asma->prot_mask)) &
 		     calc_vm_prot_bits(PROT_MASK))) {
+        // psw0523 debugging
+        printk("%s: permission failed\n", __func__);
 		ret = -EPERM;
 		goto out;
 	}
