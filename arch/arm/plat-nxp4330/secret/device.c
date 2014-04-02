@@ -489,7 +489,7 @@ void __init nxp_reserve_mem(void)
 
 #define NXE2000_I2C_BUS		(0)
 #define NXE2000_I2C_ADDR	(0x64 >> 1)
-#define NXE2000_IRQ			(PAD_GPIO_ALV + 4)
+#define NXE2000_IRQ			CFG_GPIO_PMIC_INTR
 
 #define PMC_CTRL			0x0
 #define PMC_CTRL_INTR_LOW	(1 << 17)

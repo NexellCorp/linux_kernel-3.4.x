@@ -19,6 +19,8 @@
 #include <mach/platform.h>
 #include <mach/soc.h>
 
+//#define FEATURE_SYSFS
+
 #define DEVICE_NAME						"pm-micom"
 
 #define MAX_RETRY_I2C_XFER 				(100)
@@ -126,6 +128,7 @@ static int bma_i2c_burst_read(struct i2c_client *client, u8 reg_addr,
 	return 0;
 }
 
+#ifdef FEATURE_SYSFS
 static ssize_t micom_suspend_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -160,6 +163,7 @@ static struct attribute *micom_attributes[] = {
 static struct attribute_group micom_attribute_group = {
 	.attrs = micom_attributes
 };
+#endif
 
 
 static int micom_probe(struct i2c_client *client,
@@ -202,9 +206,11 @@ static int micom_probe(struct i2c_client *client,
 			break;
 	}
 
+#ifdef FEATURE_SYSFS
 	err = sysfs_create_group(&client->dev.kobj, &micom_attribute_group);
 	if (err < 0)
 		goto error_sysfs;
+#endif
 
 	return 0;
 
@@ -226,7 +232,9 @@ static int __devexit micom_remove(struct i2c_client *client)
 
     PM_DBGOUT("+%s\n", __func__);
 
+#ifdef FEATURE_SYSFS
 	sysfs_remove_group(&client->dev.kobj, &micom_attribute_group);
+#endif
 	kfree(data);
 
     PM_DBGOUT("-%s\n", __func__);
@@ -301,11 +309,8 @@ static struct i2c_driver micom_driver = {
 
 static int __init micom_init(void)
 {
-    PM_DBGOUT("+%s\n", __func__);
 	pm_power_off_prepare = micom_shutdown;
-
 	nxp_check_pm_wakeup_dev = _pm_check_wakeup_dev;
-
 	return i2c_add_driver(&micom_driver);
 }
 
