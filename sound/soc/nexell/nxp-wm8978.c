@@ -182,10 +182,10 @@ static int wm8976_dai_init(struct snd_soc_pcm_runtime *rtd)
 
 	pr_debug("%s: %s\n", __func__, jack->name);
 
+	wm8976 = codec;
+
 	if (NULL == jack->name)
 		return 0;
-
-	wm8976 = codec;
 
 	/* Headset jack detection */
 	ret = snd_soc_jack_new(codec, "Headphone Jack", SND_JACK_HEADPHONE, &hp_jack);
