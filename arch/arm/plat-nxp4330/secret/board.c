@@ -97,7 +97,6 @@ static void bd_gpio_init(void)
 
 		for (bit = 0; 32 > bit; bit++) {
 			gpio  = pads[index][bit];
-			if(gpio == NULL)	continue;
 			func  = PAD_GET_FUNC(gpio);
 			mode  = PAD_GET_MODE(gpio);
 			lv    = PAD_GET_LEVEL(gpio);
@@ -154,7 +153,6 @@ static void bd_alive_init(void)
 	for (bit = 0; index > bit; bit++) {
 		NX_ALIVE_ClearInterruptPending(bit);
 		gpio = pads[bit];
-		if(gpio == NULL)	continue;
 		mode = PAD_GET_MODE(gpio);
 		lv   = PAD_GET_LEVEL(gpio);
 		plup = PAD_GET_PULLUP(gpio);
