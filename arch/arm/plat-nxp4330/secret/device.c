@@ -32,9 +32,6 @@
 #include <mach/devices.h>
 #include <mach/soc.h>
 
-/*------------------------------------------------------------------------------
- * DW MMC (Synopsys DesignWare Memory Card Interface)
- */
 #if defined(CONFIG_ARM_NXP4330_CPUFREQ)
 
 static unsigned long dfs_freq_table[][2] = {
