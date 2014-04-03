@@ -276,6 +276,7 @@ struct nxe2000 {
 	int			irq_base;
 /*	struct irq_chip		irq_chip; */
 	int			chip_irq;
+	int			chip_irq_type;
 	struct mutex		irq_lock;
 	unsigned long		group_irq_en[MAX_MAIN_INTERRUPT];
 
@@ -300,6 +301,7 @@ struct nxe2000_platform_data {
 	int (*init_port)(int irq_num); /* Init GPIO for IRQ pin */
 	int		gpio_base;
 	int		irq_base;
+	int		irq_type;
 	struct nxe2000_gpio_init_data *gpio_init_data;
 	int num_gpioinit_data;
 	bool enable_shutdown_pin;
@@ -340,7 +342,7 @@ extern int nxe2000_update(struct device *dev, u8 reg, uint8_t val,
 extern int nxe2000_update_bank1(struct device *dev, u8 reg, uint8_t val,
 								uint8_t mask);
 extern void nxe2000_power_off(void);
-extern int nxe2000_irq_init(struct nxe2000 *nxe2000, int irq, int irq_base);
+extern int nxe2000_irq_init(struct nxe2000 *nxe2000);
 extern int nxe2000_irq_exit(struct nxe2000 *nxe2000);
 
 #endif
