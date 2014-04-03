@@ -197,16 +197,16 @@
 /*------------------------------------------------------------------------------
  * 	SDHC
  */
-#define	CFG_SDMMC0_DETECT_IO					(PAD_GPIO_ALV + 1)	/* external cd */
+#define	CFG_SDMMC0_DETECT_IO					(-1)
 
 /*------------------------------------------------------------------------------
  * 	NXE2000 PMIC
  */
 #define CFG_GPIO_OTG_USBID_DET					(PAD_GPIO_D + 16)
-#define CFG_GPIO_OTG_VBUS_DET					(-1)//(PAD_GPIO_D + 21)
+#define CFG_GPIO_OTG_VBUS_DET					(-1)
 #define CFG_GPIO_PMIC_VUSB_DET					(PAD_GPIO_ALV + 2)
 #define CFG_GPIO_PMIC_LOWBAT_DET				(PAD_GPIO_ALV + 3)		/* Critical low battery detect */
-#define CFG_GPIO_PMIC_INTR						(PAD_GPIO_ALV + 4)
+#define CFG_GPIO_PMIC_INTR						(PAD_GPIO_C + 0)
 #define CFG_PMIC_BAT_CHG_SUPPORT				(1)
 
 /*------------------------------------------------------------------------------
