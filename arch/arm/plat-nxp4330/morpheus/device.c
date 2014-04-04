@@ -722,9 +722,20 @@ static int _dwmci2_get_cd(u32 slot_id)
 }
 
 static struct dw_mci_board _dwmci2_data = {
-	.quirks			= DW_MCI_QUIRK_HIGHSPEED,
-	.bus_hz			= 70 * 1000 * 1000,
-	.caps			= MMC_CAP_CMD23,
+//	.quirks			= DW_MCI_QUIRK_HIGHSPEED,
+	.quirks 		= DW_MCI_QUIRK_BROKEN_CARD_DETECTION |
+						DW_MCI_QUIRK_HIGHSPEED |
+		                DW_MMC_QUIRK_HW_RESET_PW |
+		                DW_MCI_QUIRK_NO_DETECT_EBIT,
+	.bus_hz			= 20 * 1000 * 1000,
+//	.caps			= MMC_CAP_CMD23,
+	.caps = MMC_CAP_UHS_DDR50 |
+			MMC_CAP_1_8V_DDR |
+			MMC_CAP_4_BIT_DATA | MMC_CAP_CMD23 |
+			MMC_CAP_ERASE | MMC_CAP_HW_RESET,
+//	.caps2 = MMC_CAP2_HS200_1_8V_SDR ,
+	.caps2 = MMC_CAP2_PACKED_WR,
+	//.clk_dly = 0x30000,
 	.detect_delay_ms= 200,
 //	.sdr_timing		= 0x03020001,
 //	.ddr_timing		= 0x03030002,

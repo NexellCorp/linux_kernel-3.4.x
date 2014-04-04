@@ -1075,8 +1075,7 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	regs = mci_readl(slot->host, UHS_REG);
 
-	printk("\n\n ****************Timing = %d \n",ios->timing);
-	/* eDR mode set */
+	/* DDR mode set */
 	if (ios->timing == MMC_TIMING_UHS_DDR50)
 		regs |= (0x1 << slot->id) << 16;
 	else
