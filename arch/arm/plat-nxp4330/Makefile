@@ -26,6 +26,10 @@ endif
 ifeq ($(CONFIG_PLAT_NXP4330_SECRET),y)
 PLATBOARD :=secret
 endif
+
+ifeq ($(CONFIG_PLAT_NXP4330_W7),y)
+PLATBOARD :=w7
+endif
 #
 # Build options
 #
