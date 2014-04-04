@@ -467,17 +467,17 @@ static int _power_on_device(u8 ch_num)
         if( ch_num == NXP_MP2TS_ID_CAP0 )
         {
             /* Set pad capture ch0 */
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_B+24, CFALSE);          // DATA[0]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_B+25, CFALSE);          // DATA[1]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_B+26, CFALSE);          // DATA[2]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_B+27, CFALSE);          // DATA[3]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_B+28, CFALSE);          // DATA[4]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_B+29, CFALSE);          // DATA[5]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_B+30, CFALSE);          // DATA[6]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_B+31, CFALSE);          // DATA[7]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_C+15, CFALSE);          // CLk
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_C+16, CFALSE);          // SYNC
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_C+17, CFALSE);          // VALID
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_B+24, CFALSE);        // DATA[0]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_B+25, CFALSE);        // DATA[1]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_B+26, CFALSE);        // DATA[2]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_B+27, CFALSE);        // DATA[3]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_B+28, CFALSE);        // DATA[4]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_B+29, CFALSE);        // DATA[5]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_B+30, CFALSE);        // DATA[6]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_B+31, CFALSE);        // DATA[7]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_C+15, CFALSE);        // CLk
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_C+16, CFALSE);        // SYNC
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_C+17, CFALSE);        // VALID
 
             nxp_soc_gpio_set_io_func(PAD_GPIO_B+24, NX_GPIO_PADFUNC_2); // DATA[0]
             nxp_soc_gpio_set_io_func(PAD_GPIO_B+25, NX_GPIO_PADFUNC_2); // DATA[1]
@@ -494,17 +494,17 @@ static int _power_on_device(u8 ch_num)
         else
         {
             /* Set pad capture ch1 */
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_D+28, CFALSE);          // DATA[0]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_D+29, CFALSE);          // DATA[1]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_D+30, CFALSE);          // DATA[2]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_D+31, CFALSE);          // DATA[3]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_E+0,  CFALSE);          // DATA[4]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_E+1,  CFALSE);          // DATA[5]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_E+2,  CFALSE);          // DATA[6]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_E+3,  CFALSE);          // DATA[7]
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_E+4,  CFALSE);          // CLk
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_E+5,  CFALSE);          // SYNC
-            nxp_soc_gpio_set_io_pullup(PAD_GPIO_E+6,  CFALSE);          // VALID
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_D+28, CFALSE);        // DATA[0]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_D+29, CFALSE);        // DATA[1]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_D+30, CFALSE);        // DATA[2]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_D+31, CFALSE);        // DATA[3]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_E+0,  CFALSE);        // DATA[4]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_E+1,  CFALSE);        // DATA[5]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_E+2,  CFALSE);        // DATA[6]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_E+3,  CFALSE);        // DATA[7]
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_E+4,  CFALSE);        // CLk
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_E+5,  CFALSE);        // SYNC
+            nxp_soc_gpio_set_io_pull_enb(PAD_GPIO_E+6,  CFALSE);        // VALID
 
             nxp_soc_gpio_set_io_func(PAD_GPIO_D+28, NX_GPIO_PADFUNC_2); // DATA[0]
             nxp_soc_gpio_set_io_func(PAD_GPIO_D+29, NX_GPIO_PADFUNC_2); // DATA[1]

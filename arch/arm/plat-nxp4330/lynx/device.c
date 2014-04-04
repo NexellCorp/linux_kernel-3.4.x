@@ -24,8 +24,9 @@
 #include <linux/types.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
-
+#include <linux/irq.h>
 #include <linux/amba/pl022.h>
+
 /* nexell soc headers */
 #include <mach/platform.h>
 #include <mach/devices.h>
@@ -33,9 +34,6 @@
 
 
 
-/*------------------------------------------------------------------------------
- * DW MMC (Synopsys DesignWare Memory Card Interface)
- */
 #if defined(CONFIG_ARM_NXP4330_CPUFREQ)
 
 static unsigned long dfs_freq_table[][2] = {
@@ -997,6 +995,7 @@ static struct nxe2000_platform_data nxe2000_platform = {
 	.num_subdevs		= ARRAY_SIZE(nxe2000_devs_dcdc),
 	.subdevs			= nxe2000_devs_dcdc,
 	.irq_base			= NXE2000_IRQ_BASE,
+	.irq_type			= IRQ_TYPE_EDGE_FALLING,
 	.gpio_base			= NXE2000_GPIO_BASE,
 	.gpio_init_data		= nxe2000_gpio_data,
 	.num_gpioinit_data	= ARRAY_SIZE(nxe2000_gpio_data),
@@ -1687,7 +1686,7 @@ static int _dwmci0_get_cd(u32 slot_id)
 
 static struct dw_mci_board _dwmci0_data = {
 	.quirks			= DW_MCI_QUIRK_BROKEN_CARD_DETECTION | DW_MCI_QUIRK_HIGHSPEED,
-	.bus_hz			= 100 * 1000 * 1000,
+	.bus_hz			= 70 * 1000 * 1000,
 	.caps			= MMC_CAP_CMD23,
 	.detect_delay_ms= 200,
 //	.sdr_timing		= 0x03020001,

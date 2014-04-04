@@ -374,6 +374,7 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 	dma_addr = usb_req->dma;
 #else
+	dma_addr = usb_req->dma;
     if (GET_CORE_IF(pcd)->dma_enable) {
         dwc_otg_device_t *otg_dev = gadget_wrapper->pcd->otg_dev;
         struct device *dev = NULL;
@@ -1474,7 +1475,7 @@ void pcd_remove(dwc_bus_dev_t *_dev)
 #endif
 	dwc_otg_pcd_remove(otg_dev->pcd);
 	free_wrapper(gadget_wrapper);
-	otg_dev->pcd = 0;
+//	otg_dev->pcd = NULL;
 }
 
 // psw0523 fix

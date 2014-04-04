@@ -24,6 +24,7 @@
 #include <linux/types.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
+#include <linux/irq.h>
 
 /* nexell soc headers */
 #include <mach/platform.h>
@@ -599,6 +600,7 @@ static struct nxe2000_platform_data nxe2000_platform = {
 	.num_subdevs		= ARRAY_SIZE(nxe2000_devs_dcdc),
 	.subdevs			= nxe2000_devs_dcdc,
 	.irq_base			= NXE2000_IRQ_BASE,
+	.irq_type			= IRQ_TYPE_EDGE_FALLING,
 	.gpio_base			= NXE2000_GPIO_BASE,
 	.gpio_init_data		= nxe2000_gpio_data,
 	.num_gpioinit_data	= ARRAY_SIZE(nxe2000_gpio_data),
@@ -672,12 +674,35 @@ int _dwmci_ext_cd_cleanup(void (*notify_func)(struct platform_device *, int stat
 {
 	return 0;
 }
+static int _dwmci_get_ro(u32 slot_id)
+{
+     return 0;
+}
 
 #ifdef CONFIG_MMC_NEXELL_CH0
-static int _dwmci0_init(u32 slot_id, irq_handler_t handler, void *data)
+static struct dw_mci_board _dwmci0_data = {
+	.quirks = DW_MCI_QUIRK_BROKEN_CARD_DETECTION |
+			  DW_MCI_QUIRK_HIGHSPEED |
+			  DW_MMC_QUIRK_HW_RESET_PW |
+			  DW_MCI_QUIRK_NO_DETECT_EBIT,
+	.bus_hz = 100 * 1000 * 1000,
+	.caps = MMC_CAP_UHS_DDR50 |
+			MMC_CAP_NONREMOVABLE |
+			MMC_CAP_4_BIT_DATA | MMC_CAP_CMD23 |
+			MMC_CAP_ERASE | MMC_CAP_HW_RESET,
+	.caps2 = MMC_CAP2_PACKED_WR,
+	.desc_sz = 4,
+	.detect_delay_ms= 200,
+	.sdr_timing = 0x03020001,
+	.ddr_timing = 0x03030002,
+};
+#endif
+
+#ifdef CONFIG_MMC_NEXELL_CH2
+static int _dwmci2_init(u32 slot_id, irq_handler_t handler, void *data)
 {
 	struct dw_mci *host = (struct dw_mci *)data;
-	int io  = CFG_SDMMC0_DETECT_IO;
+	int io  = CFG_SDMMC2_DETECT_IO;
 	int irq = IRQ_GPIO_START + io;
 	int id  = 0, ret = 0;
 
@@ -690,22 +715,23 @@ static int _dwmci0_init(u32 slot_id, irq_handler_t handler, void *data)
 	return 0;
 }
 
-static int _dwmci0_get_cd(u32 slot_id)
+static int _dwmci2_get_cd(u32 slot_id)
 {
-	int io = CFG_SDMMC0_DETECT_IO;
+	int io = CFG_SDMMC2_DETECT_IO;
 	return nxp_soc_gpio_get_in_value(io);
 }
 
-static struct dw_mci_board _dwmci0_data = {
+static struct dw_mci_board _dwmci2_data = {
 	.quirks			= DW_MCI_QUIRK_HIGHSPEED,
-	.bus_hz			= 100 * 1000 * 1000,
+	.bus_hz			= 70 * 1000 * 1000,
 	.caps			= MMC_CAP_CMD23,
 	.detect_delay_ms= 200,
 //	.sdr_timing		= 0x03020001,
 //	.ddr_timing		= 0x03030002,
 	.cd_type		= DW_MCI_CD_EXTERNAL,
-	.init			= _dwmci0_init,
-	.get_cd			= _dwmci0_get_cd,
+	.init			= _dwmci2_init,
+	.get_ro 		= _dwmci_get_ro,
+	.get_cd			= _dwmci2_get_cd,
 	.ext_cd_init	= _dwmci_ext_cd_init,
 	.ext_cd_cleanup	= _dwmci_ext_cd_cleanup,
 };
@@ -810,6 +836,9 @@ void __init nxp_board_devices_register(void)
 #if defined(CONFIG_MMC_DW)
 	#ifdef CONFIG_MMC_NEXELL_CH0
 	nxp_mmc_add_device(0, &_dwmci0_data);
+	#endif
+	#ifdef CONFIG_MMC_NEXELL_CH2
+	nxp_mmc_add_device(2, &_dwmci2_data);
 	#endif
 #endif
 

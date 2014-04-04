@@ -360,6 +360,7 @@ found:
 		 *
 		 * usb_gadget_connect(udc->gadget);
 		 */
+		usb_gadget_connect(udc->gadget);
 	} else {
 
 		ret = usb_gadget_start(udc->gadget, driver, bind);

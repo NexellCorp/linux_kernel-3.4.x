@@ -199,6 +199,7 @@ struct nxe2000_battery_info {
 	struct delayed_work	changed_work;
 #ifdef KOOK_UBC_CHECK
 	struct delayed_work	get_charger_work;
+	int					chg_work_recheck_count;
 #endif
 #if defined(ENABLE_LOW_BATTERY_VSYS_DETECTION) || defined(ENABLE_LOW_BATTERY_VBAT_DETECTION)
 	struct delayed_work	low_battery_work;
@@ -1921,6 +1922,7 @@ static void nxe2000_get_charger_work(struct work_struct *work)
 	uint8_t val2 = 0;
 	uint8_t val3 = 0;
 	uint8_t pc_vbus_det = 0;
+	int msecs_for_recheck = 200;
 	int ret;
 
 	mutex_lock(&info->lock);
@@ -1938,7 +1940,12 @@ static void nxe2000_get_charger_work(struct work_struct *work)
 	if (info->chg_extif & 0x01) {	/* for GCDET */
 		info->chg_extif &= ~0x01;
 
-		nxe2000_read(info->dev->parent, EXTIF_GCHGDET_REG, &val);
+		ret = nxe2000_read(info->dev->parent, EXTIF_GCHGDET_REG, &val);
+		if (ret < 0) {
+			dev_err(info->dev, "Error in reading the extif register\n");
+			goto set_recheck;
+		}
+
 		val2 = (val & 0x0c) >> 2;
 		if (val2 != 2) {		/* Check GC_DET */
 			dev_err(info->dev, "GC_DET is not completedr\n");
@@ -2024,6 +2031,7 @@ static void nxe2000_get_charger_work(struct work_struct *work)
 			goto set_recheck;
 		}
 
+#if 0
 		if ( (info->extif_type == EXTIF_TYPE_IRP) || (info->extif_type == EXTIF_TYPE_OTHERS) )
 		{
 			/* Start PC Detection */
@@ -2036,6 +2044,14 @@ static void nxe2000_get_charger_work(struct work_struct *work)
 
 			goto set_recheck;
 		}
+#else
+
+		if ( (info->extif_type == EXTIF_TYPE_IRP) || (info->extif_type == EXTIF_TYPE_OTHERS) )
+		{
+			goto set_recheck;
+		}
+#endif
+
 	} else if (info->chg_extif & 0x02) {	/* for PCDET */
 		info->chg_extif &= ~0x02;
 
@@ -2082,6 +2098,8 @@ static void nxe2000_get_charger_work(struct work_struct *work)
 //out:
 	power_supply_changed(&info->battery);
 
+	msleep(840);
+
 	nxe2000_set_bits(info->dev->parent, 0x91, 0x10);	// GPIO4 : High(Hi-Z)
 
 #if defined(CONFIG_USB_DWCOTG)
@@ -2089,16 +2107,49 @@ static void nxe2000_get_charger_work(struct work_struct *work)
 	otg_clk_enable();
 #endif
 
+	info->chg_work_recheck_count = 0;
+
 	mutex_unlock(&info->lock);
 
 	return;
 
 set_recheck:
 
+	if (info->chg_work_recheck_count < 3)
+	{
+		msecs_for_recheck = 200;
+
+		info->chg_work_recheck_count++;
+	}
+	else
+	{
+		msecs_for_recheck = 900;
+
+		nxe2000_set_bits(info->dev->parent, 0x91, 0x10);	// GPIO4 : High(Hi-Z)
+#if defined(CONFIG_USB_DWCOTG)
+		otg_phy_init();
+		otg_clk_enable();
+
+		otg_clk_disable();
+		otg_phy_suspend();
+#endif
+		nxe2000_clr_bits(info->dev->parent, 0x91, 0x10);	// GPIO4 : Low
+
+		info->chg_work_recheck_count = 0;
+	}
+
+	/* GCHGDET:(0xDA) setting */
+	val = 0x01;
+	ret = nxe2000_write(info->dev->parent, EXTIF_GCHGDET_REG, val);
+	if (ret < 0) {
+		dev_err(info->dev,
+			"Error in writing EXTIF_GCHGDET_REG %d\n", val);
+	}
+
 	mutex_unlock(&info->lock);
 
-    queue_delayed_work(info->monitor_wqueue,
-               &info->get_charger_work, msecs_to_jiffies(200));
+	queue_delayed_work(info->monitor_wqueue,
+				&info->get_charger_work, msecs_to_jiffies(msecs_for_recheck));
 
 	return;
 }
@@ -3218,8 +3269,9 @@ static void charger_irq_work(struct work_struct *work)
 				val = (info->ch_icchg << 6) + info->ch_ichg;
 				nxe2000_write(info->dev->parent, CHGISET_REG, val);
 
-				val = (0x1 << NXE2000_POS_CHGCTL1_VADPCHGEN);
-				nxe2000_set_bits(info->dev->parent, CHGCTL1_REG, val);
+				val = (0x1 << NXE2000_POS_CHGCTL1_NOBATOVLIM)
+					| (0x1 << NXE2000_POS_CHGCTL1_VADPCHGEN);
+				nxe2000_write(info->dev->parent, CHGCTL1_REG, val);
 
 				return;
 			}

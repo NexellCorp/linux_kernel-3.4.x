@@ -224,8 +224,7 @@ static void android_disable(struct android_dev *dev)
 	if (dev->disable_depth++ == 0) {
 		usb_gadget_disconnect(cdev->gadget);
 		/* Cancel pending control requests */
-		if (cdev->gadget->ep0 && cdev->req)
-			usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
+		usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
 		usb_remove_config(cdev, &android_config_driver);
 	}
 }
@@ -1554,10 +1553,12 @@ int android_gadget_init(void)
 
 	PM_DBGOUT("g_android [%d] ++ %s\n", __LINE__, __func__);
 
+#if 0
 	dev->disable_depth = 1;
 	dev->functions = supported_functions;
 	INIT_LIST_HEAD(&dev->enabled_functions);
 	INIT_WORK(&dev->work, android_work);
+#endif
 	mutex_init(&dev->mutex);
 
 	/* Override composite driver functions */
@@ -1589,9 +1590,9 @@ void android_gadget_cleanup(void)
 
 	s_android_gadget_enabled = dev->enabled;
 	if (s_android_gadget_enabled) {
-		cancel_work_sync(&dev->work);
 		android_disable(dev);
 		dev->enabled = false;
+		while(work_busy(&dev->work));
 	}
 
 	usb_composite_unregister(&android_usb_driver);

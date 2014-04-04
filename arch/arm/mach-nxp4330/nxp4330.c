@@ -42,6 +42,7 @@
 
 static void cpu_base_init(void)
 {
+	U32 tie_reg, val;
 	int i = 0;
 
 	NX_RSTCON_Initialize();
@@ -68,6 +69,17 @@ static void cpu_base_init(void)
 	 * NOTE> ALIVE Power Gate must enable for RTC register access.
 	 */
 	NX_ALIVE_SetWriteEnable(CTRUE);
+
+	/*
+	 * NOTE> Control for ACP register access.
+	 */
+	tie_reg = (U32)IO_ADDRESS(NX_TIEOFF_GetPhysicalAddress());
+
+	val = __raw_readl(tie_reg + 0x70) & ~((3 << 30) | (3 << 10));
+	writel(val, (tie_reg + 0x70));
+
+	val = __raw_readl(tie_reg + 0x80) & ~(3 << 3);
+	writel(val, (tie_reg + 0x80));
 }
 
 static void cpu_bus_init(void)
@@ -241,8 +253,4 @@ void nxp_cpu_base_init(void)
 	cpu_vers_no = ver;
 	printk(KERN_INFO "CPU : VERSION = %u (0x%X)\n", cpu_vers_no, rev);
 }
-
-
-
-
 
