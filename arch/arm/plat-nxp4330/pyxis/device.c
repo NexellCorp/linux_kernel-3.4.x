@@ -439,7 +439,7 @@ static struct platform_device spdif_trans_dai = {
  */
 #if defined(CONFIG_SENSORS_MMA7660) || defined(CONFIG_SENSORS_MMA7660_MODULE)
 #include <linux/i2c.h>
-#include <linux/mma7660.h>
+#include <../../../../drivers/hwmon/mma7660.h>
 
 #define	MMA7660_I2C_BUS		(2)
 
