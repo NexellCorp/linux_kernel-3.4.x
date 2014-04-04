@@ -214,6 +214,7 @@ static AMBA_AHB_DEVICE(uart5, "uart-pl011.5", 0, PHY_BASEADDR_UART5, {IRQ_PHY_UA
 #define	I2C2_SDA	NXP_I2C2_MOD_SDA
 #endif
 
+
 #if	defined(CONFIG_I2C_NEXELL_PORT0)
 
 static struct i2c_gpio_platform_data nxp_i2c_gpio_port0 = {
@@ -327,6 +328,7 @@ static struct platform_device i2c_device_ch2 = {
 };
 #endif
 #endif
+
 
 static struct platform_device *i2c_devices[] = {
 	#if	defined(CONFIG_I2C_NEXELL_PORT0)
