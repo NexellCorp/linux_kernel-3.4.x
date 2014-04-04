@@ -256,6 +256,7 @@ void __init nxp_mmc_add_device(int ch, struct dw_mci_board *mci)
 	NXP_DWMCI_ITEM_CHECK(mci, dst, dma_ops);
 	NXP_DWMCI_ITEM_CHECK(mci, dst, data);
 	NXP_DWMCI_ITEM_CHECK(mci, dst, blk_settings);
+	NXP_DWMCI_ITEM_CHECK(mci, dst, clk_dly );
 
 	printk("mach: add device sdmmc [%d]\n", ch);
     platform_device_register(dwmci_devices[id]);
