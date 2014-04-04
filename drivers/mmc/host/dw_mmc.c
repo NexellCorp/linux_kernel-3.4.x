@@ -844,16 +844,16 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, int force)
 
 	if ((slot->clock != host->current_speed) || force) {
 		do {
-			div = (host->bus_hz/2) / slot->clock;
-			if (((host->bus_hz/2) % slot->clock) &&
-				((host->bus_hz/2) > slot->clock))
+			div = host->bus_hz / slot->clock;
+			if ((host->bus_hz % slot->clock) &&
+				(host->bus_hz > slot->clock))
 				/*
 				 * move the + 1 after the divide to prevent
 				 * over-clocking the card.
 				 */
 				div++;
 
-			div = ((host->bus_hz/2) != slot->clock) ?
+			div = (host->bus_hz != slot->clock) ?
 				DIV_ROUND_UP(div, 2) : 0;
 
 			/* CLKDIV limitation is 0xFF */
@@ -861,11 +861,11 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, int force)
 				div = 0xFF;
 
 			actual_speed = div ?
-				((host->bus_hz/2) / div) >> 1 : host->bus_hz;
+				(host->bus_hz / div) >> 1 : host->bus_hz;
 
 			/* Change SCLK_MMC */
 			if (actual_speed > slot->clock &&
-				(host->bus_hz/2) != 0 && !reset_div) {
+				host->bus_hz != 0 && !reset_div) {
 				dev_err(&host->dev,
 					"Actual clock is high than a reqeust clock."
 					"Source clock is needed to change\n");
@@ -878,7 +878,7 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, int force)
 		dev_info(&slot->mmc->class_dev,
 			 "Bus speed (slot %d) = %dHz (slot req %dHz, actual %dHZ"
 			 " div = %d)\n", slot->id, host->bus_hz, slot->clock,
-			 div ? (((host->bus_hz/2) / div) >> 1) : host->bus_hz/2, div);
+			 div ? ((host->bus_hz / div) >> 1) : host->bus_hz, div);
 
 		/* disable clock */
 		mci_writel(host, CLKENA, 0);
@@ -1075,7 +1075,8 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	regs = mci_readl(slot->host, UHS_REG);
 
-	/* DDR mode set */
+	printk("\n\n ****************Timing = %d \n",ios->timing);
+	/* eDR mode set */
 	if (ios->timing == MMC_TIMING_UHS_DDR50)
 		regs |= (0x1 << slot->id) << 16;
 	else
@@ -2595,7 +2596,7 @@ int __devinit dw_mci_probe(struct dw_mci *host)
 	}
 	clk_enable(host->cclk);
 
-	host->bus_hz = host->pdata->bus_hz;
+	host->bus_hz = (host->pdata->bus_hz)/2;	/* modify by jhkim, input clock is clock gen/2 */
 	host->max_bus_hz = host->pdata->max_bus_hz;
 	host->quirks = host->pdata->quirks;
 
@@ -2672,7 +2673,11 @@ int __devinit dw_mci_probe(struct dw_mci *host)
 #endif
 // ---
 	mci_writel(host, FIFOTH, host->fifoth_val);
-
+	/* ADD SD/EMMC Clock Shifting by Youngbok Park */
+	printk("clk_dly %x \n ", host->pdata->clk_dly);
+	if(host->pdata->clk_dly)
+		mci_writel(host, CLKCTRL, host->pdata->clk_dly);
+	
 	/* disable clock to CIU */
 	mci_writel(host, CLKENA, 0);
 	mci_writel(host, CLKSRC, 0);
