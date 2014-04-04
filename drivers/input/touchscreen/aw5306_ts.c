@@ -833,7 +833,7 @@ AW5306_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	struct AW5306_ts_data *ts;
 	struct input_dev *input;
 	int err = 0;
-    	u8 val;
+    u8 val;
 
 	pr_debug("+%s\n", __func__);
 
@@ -848,14 +848,21 @@ AW5306_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto exit_alloc_data_failed;
 	}
 
-	memcpy(&Default_UCF, &plat->default_UCF, sizeof(AW5306_UCF));
-	cpfreq = plat->cpfreq;
-
-	ts->max_x = plat->max_x;
-	ts->max_y = plat->max_y;
-	ts->x_invert_flag = plat->x_invert_flag;
-	ts->y_invert_flag = plat->y_invert_flag;
-	ts->xy_exchange_flag = plat->xy_exchange_flag;
+	if (plat) {
+		memcpy(&Default_UCF, &plat->default_UCF, sizeof(AW5306_UCF));
+		cpfreq = plat->cpfreq;
+		ts->max_x = plat->max_x;
+		ts->max_y = plat->max_y;
+		ts->x_invert_flag = plat->x_invert_flag;
+		ts->y_invert_flag = plat->y_invert_flag;
+		ts->xy_exchange_flag = plat->xy_exchange_flag;
+	} else {
+		ts->max_x = 800;
+		ts->max_y = 1280;
+		ts->x_invert_flag = 0;
+		ts->y_invert_flag = 1;
+		ts->xy_exchange_flag = 0;
+	}
 
 	AW5306_ts_power();
 
