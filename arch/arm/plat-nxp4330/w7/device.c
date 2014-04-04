@@ -220,7 +220,7 @@ static struct platform_device nand_plat_device = {
 #include <linux/i2c.h>
 #define	AW5306_I2C_BUS		(1)
 
-#include <linux/input/aw5306_userpara.h>
+#include <../../../../drivers/input/touchscreen/aw5306_userpara.h>
 struct aw5306_plat_data nxp_aw5306_plat_data = {
 	.default_UCF = {
 		15,//18,	//TX_NUM
