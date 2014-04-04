@@ -213,6 +213,7 @@ static struct platform_device nand_plat_device = {
 };
 #endif	/* CONFIG_MTD_NAND_NEXELL */
 
+
 /*------------------------------------------------------------------------------
  * Touch platform device
  */
@@ -220,7 +221,7 @@ static struct platform_device nand_plat_device = {
 #include <linux/i2c.h>
 #define	AW5306_I2C_BUS		(1)
 
-#include <linux/input/aw5306_userpara.h>
+#include <../../../../drivers/input/touchscreen/aw5306_userpara.h>
 struct aw5306_plat_data nxp_aw5306_plat_data = {
 	.default_UCF = {
 		15,//18,	//TX_NUM
@@ -508,6 +509,36 @@ void __init nxp_reserve_mem(void)
     nxp_cma_region_reserve(regions, map);
 }
 #endif
+
+
+#if defined(CONFIG_I2C_NEXELL)
+#define I2CUDELAY(x)	1000000/x
+/* gpio i2c 3 */
+#define	I2C3_SCL	PAD_GPIO_E + 19
+#define	I2C3_SDA	PAD_GPIO_E + 18
+
+static struct i2c_gpio_platform_data nxp_i2c_gpio_port3 = {
+	.sda_pin	= I2C3_SDA,
+	.scl_pin	= I2C3_SCL,
+	.udelay		= I2CUDELAY(CFG_I2C2_CLK),				/* Gpio_mode CLK Rate = 1/( udelay*2) * 1000000 */
+
+	.timeout	= 10,
+};
+
+
+static struct platform_device i2c_device_ch3 = {
+	.name	= "i2c-gpio",
+	.id		= 3,
+	.dev    = {
+		.platform_data	= &nxp_i2c_gpio_port3,
+	},
+};
+
+static struct platform_device *i2c_devices[] = {
+	&i2c_device_ch3,
+};
+#endif /* CONFIG_I2C_NEXELL */
+
 
 /*------------------------------------------------------------------------------
  * PMIC platform device
@@ -1427,6 +1458,10 @@ void __init nxp_board_devices_register(void)
 #if defined(CONFIG_ANDROID_VIBRATION)
 	printk("plat: add android timed gpio\n");
     platform_device_register(&android_timed_gpios);
+#endif
+
+#if defined(CONFIG_I2C_NEXELL)
+    platform_add_devices(i2c_devices, ARRAY_SIZE(i2c_devices));
 #endif
 
 #if defined(CONFIG_REGULATOR_NXE2000)

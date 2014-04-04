@@ -221,10 +221,107 @@ static struct platform_device nand_plat_device = {
 #include <linux/i2c.h>
 #define	AW5306_I2C_BUS		(1)
 
+#include <../../../../drivers/input/touchscreen/aw5306_userpara.h>
+struct aw5306_plat_data nxp_aw5306_plat_data = {
+	.default_UCF = {
+	       18,     //TX_NUM
+	       12,     //RX_LOCAL
+
+		{0,1,2,3,4,5,6,7,17,16,15,14,13,12,11,10,9,8,0},	// B', A		//TX_ORDER
+		{11,10,9,8,7,6,5,4,3,2,1,0},	//RX_ORDER
+
+
+		0,	//RX_START0,1
+
+		0,	//HAVE_KEY_LINE
+		{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},	//KeyLineValid
+
+
+		800,   //MAPPING_MAX_X
+	       1280,   //MAPPING_MAX_Y
+
+		400,	//GainClbDeltaMin
+		500,	//GainClbDeltaMax
+		200,	//KeyLineDeltaMin
+		300,	//KeyLineDeltaMax
+		8300,	//OffsetClbExpectedMin
+		8500,	//OffsetClbExpectedMax
+		300,	//RawDataDeviation
+		10,		//CacMultiCoef
+
+		7000,	//RawDataCheckMin
+		10000,	//RawDataCheckMax
+
+		200,	//FLYING_TH
+		100,	//MOVING_TH
+		50,		//MOVING_ACCELER
+
+		70,		//PEAK_TH
+		80,		//GROUP_TH
+		90,		//BIGAREA_TH
+		25,		//BIGAREA_CNT
+		100,	//BIGAREA_FRESHCNT
+
+		1,		//CACULATE_COEF
+
+		1,	//FIRST_CALI
+		0,	//RAWDATA_DUMP_SWITCH
+
+		0,	//MULTI_SCANFREQ
+		10,	//BASE_FREQ
+		0x84,	//FREQ_OFFSET
+
+		1,	//ESD_PROTECT
+
+		0,	//MARGIN_COMPENSATE
+		0,	//MARGIN_COMP_DATA_UP
+		0,	//MARGIN_COMP_DATA_DOWN
+		0,	//MARGIN_COMP_DATA_LEFT
+		0,	//MARGIN_COMP_DATA_RIGHT
+
+		1,	//POINT_RELEASEHOLD
+		0,	//MARGIN_RELEASEHOLD
+		0,	//POINT_PRESSHOLD
+		1,	//KEY_PRESSHOLD
+
+		0,	//PEAK_ROW_COMPENSATE
+		0,	//PEAK_COL_COMPENSATE
+		3,	//PEAK_COMPENSATE_COEF
+
+		0,	//LCD_NOISE_PROCESS
+		50,	//LCD_NOISETH
+
+		1,	//FALSE_PEAK_PROCESS
+		100,	//FALSE_PEAK_TH
+
+		2,	//STABLE_DELTA_X
+		2,	//STABLE_DELTA_Y
+
+		0,	//DEBUG_LEVEL
+
+		50,	//FAST_FRAME
+		20,	//SLOW_FRAME
+
+		1,	//GAIN_CLB_SEPERATE
+		0,	//MARGIN_PREFILTER
+		0,	//BIGAREA_HOLDPOINT
+		0,	//CHARGE_NOISE
+		0	//FREQ_JUMP
+	},
+
+	.cpfreq = 0x00,
+	.max_x = 800,
+	.max_y = 1280,
+	.x_invert_flag = 0,
+	.y_invert_flag = 1,
+	.xy_exchange_flag = 0,
+};
+
 static struct i2c_board_info __initdata aw5306_i2c_bdi = {
 	.type	= "aw5306_ts",
 	.addr	= (0x70>>1),
-    .irq    = PB_PIO_IRQ(CFG_IO_TOUCH_PENDOWN_DETECT),
+    	.irq    = PB_PIO_IRQ(CFG_IO_TOUCH_PENDOWN_DETECT),
+	.platform_data	= &nxp_aw5306_plat_data,
 };
 #endif
 
@@ -342,13 +439,19 @@ static struct platform_device spdif_trans_dai = {
  */
 #if defined(CONFIG_SENSORS_MMA7660) || defined(CONFIG_SENSORS_MMA7660_MODULE)
 #include <linux/i2c.h>
+#include <linux/mma7660.h>
 
 #define	MMA7660_I2C_BUS		(2)
+
+struct mma7660_private_data mma7660_platform_data = {
+	.position = -3,
+};
 
 /* CODEC */
 static struct i2c_board_info __initdata mma7660_i2c_bdi = {
 	.type	= "mma7660",
 	.addr	= (0x4c),
+	.platform_data = &mma7660_platform_data,
 };
 
 #endif
