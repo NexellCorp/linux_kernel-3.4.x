@@ -2672,10 +2672,9 @@ int __devinit dw_mci_probe(struct dw_mci *host)
 #endif
 // ---
 	mci_writel(host, FIFOTH, host->fifoth_val);
+
 	/* ADD SD/EMMC Clock Shifting by Youngbok Park */
-	printk("clk_dly %x \n ", host->pdata->clk_dly);
-	if(host->pdata->clk_dly)
-		mci_writel(host, CLKCTRL, host->pdata->clk_dly);
+	mci_writel(host, CLKCTRL, host->pdata->clk_dly);
 	
 	/* disable clock to CIU */
 	mci_writel(host, CLKENA, 0);
