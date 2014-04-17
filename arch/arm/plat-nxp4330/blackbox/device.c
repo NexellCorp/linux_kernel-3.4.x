@@ -24,7 +24,7 @@
 #include <linux/types.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
-
+#include <linux/irq.h>
 #include <linux/amba/pl022.h>
 /* nexell soc headers */
 #include <mach/platform.h>
