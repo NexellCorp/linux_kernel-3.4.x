@@ -30,6 +30,11 @@ endif
 ifeq ($(CONFIG_PLAT_NXP4330_W7),y)
 PLATBOARD :=w7
 endif
+
+ifeq ($(CONFIG_PLAT_NXP4330_BLACKBOX),y)
+PLATBOARD :=blackbox
+endif
+
 #
 # Build options
 #
