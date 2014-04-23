@@ -36,7 +36,7 @@
 #include <mach/platform.h>
 #include <mach/devices.h>
 #include <mach/soc.h>
-#include <vr/vr_utgard.h>
+#include <linux/vr/vr_utgard.h>
 
 /*------------------------------------------------------------------------------
  * Serial platform device
@@ -532,11 +532,16 @@ static struct vr_gpu_device_data vr_gpu_data =
 	.utilization_interval = 1000, /* ms */
 	.utilization_handler =
 #endif
+	/* PMU power domain confituration */
+	/* Mali Dynamic power domain configuration in sequence from 0-11
+	 *  GP  PP0 PP1  PP2  PP3  PP4  PP5  PP6  PP7, L2$0 L2$1 L2$2
+	 */
+	.pmu_domain_config = {0x1, 0x2, 0x4, 0x4, 0x4, 0x8, 0x8, 0x8, 0x8, 0x1, 0x2, 0x8},
 };
 
 static struct resource vr_gpu_resources[] =
 {
-	VR_GPU_RESOURCES_VR_MP2_PMU(PHY_BASEADDR_VR, NXP4330_DTK_3D_IRQ,
+	VR_GPU_RESOURCES_VR400_MP2_PMU(PHY_BASEADDR_VR, NXP4330_DTK_3D_IRQ,
 			NXP4330_DTK_3D_IRQ, NXP4330_DTK_3D_IRQ, NXP4330_DTK_3D_IRQ,
 			NXP4330_DTK_3D_IRQ, NXP4330_DTK_3D_IRQ)
 };
@@ -545,9 +550,12 @@ static struct platform_device vr_gpu_device =
 {
 	.name = VR_GPU_NAME_UTGARD,
 	.id = 0,
-	.num_resources = ARRAY_SIZE(vr_gpu_resources),
-	.resource = vr_gpu_resources,
+	.dev.coherent_dma_mask = DMA_BIT_MASK(32),
+
 	.dev.platform_data = &vr_gpu_data,
+
+	.num_resources = ARRAY_SIZE(vr_gpu_resources),	
+	.resource = vr_gpu_resources,
 };
 
 /*------------------------------------------------------------------------------
@@ -1335,6 +1343,7 @@ void __init nxp_cpu_devices_register(void)
     printk("mach: add device adc\n");
     platform_device_register(&adc_device);
 #endif
+
     /* Register the platform devices */
     printk("mach: add graphic device opengl|es\n");
     platform_device_register(&vr_gpu_device);
