@@ -300,8 +300,10 @@ extern void otg_phy_suspend(void);
 extern void otg_clk_enable(void);
 extern void otg_clk_disable(void);
 
+#if (CFG_SW_UBC_ENABLE == 1)
 extern int  dwc_otg_pcd_get_ep0_state(void);
 extern void dwc_otg_pcd_clear_ep0_state(void);
+#endif
 #endif
 
 static int Battery_Type(void)
@@ -321,7 +323,7 @@ static void nxe2000_battery_work(struct work_struct *work)
 
 	power_supply_changed(&info->battery);
 	queue_delayed_work(info->monitor_wqueue, &info->monitor_work,
-			   info->monitor_time);
+					 NXE2000_MONITOR_START_TIME * HZ);
 }
 
 #ifdef ENABLE_FUEL_GAUGE_FUNCTION
@@ -4551,7 +4553,7 @@ static __devinit int nxe2000_battery_probe(struct platform_device *pdev)
 	info->dev = &pdev->dev;
 	info->status = POWER_SUPPLY_STATUS_CHARGING;
 	pdata = pdev->dev.platform_data;
-	info->monitor_time = pdata->monitor_time * HZ;
+	info->monitor_time = pdata->monitor_time;
 	info->alarm_vol_mv = pdata->alarm_vol_mv;
 
 	info->input_power_type  = pdata->input_power_type;
@@ -5304,7 +5306,7 @@ static int nxe2000_battery_resume(struct device *dev)
 	}
 
 	queue_delayed_work(info->monitor_wqueue, &info->monitor_work,
-					 info->monitor_time);
+					 NXE2000_MONITOR_START_TIME * HZ);
 
 	queue_delayed_work(info->monitor_wqueue, &info->charge_monitor_work,
 					 NXE2000_CHARGE_RESUME_TIME * HZ);
