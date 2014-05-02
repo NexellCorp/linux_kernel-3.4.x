@@ -195,20 +195,6 @@ static unsigned nxp_fb_dev_set_layer(struct nxp_fb_param *par)
 	return nxp_soc_disp_rgb_set_fblayer(module, layer);
 }
 
-static unsigned nxp_fb_dev_get_addr(struct nxp_fb_param *par)
-{
-	int module = par->fb_dev.device_id;
-	int layer = par->fb_dev.layer;
-	unsigned int phyaddr = 0;
-
-	if (-1 == module)
-		return 0;
-
-	nxp_soc_disp_rgb_get_address(module, layer, &phyaddr, NULL, NULL);
-
-	return phyaddr;
-}
-
 static void nxp_fb_dev_set_addr(struct nxp_fb_param *par, unsigned phys, int waitvsync)
 {
 	int module = par->fb_dev.device_id;
@@ -232,7 +218,7 @@ static int nxp_fb_dev_enable(struct nxp_fb_param *par, bool on, int force)
 		return 0;
 
 	if (!force)
-		stat = nxp_soc_disp_device_stat_enable(DISP_DEVICE_SYNCGEN0 + module)
+		stat = nxp_soc_disp_device_stat_enable(DISP_DEVICE_SYNCGEN0 + module);
 
 	if (!stat)
 		nxp_soc_disp_device_enable_all(module, on ? 1: 0);
@@ -287,13 +273,23 @@ static inline void *fb_copy_map(struct page *page, unsigned int phys, int size)
 
 	return virt;
 }
+
 static inline  void fb_copy_unmap(struct page *page, void *virt)
 {
-	#if 1
 	vunmap((void*)virt);
-	#else
-	kunmap(page);
-	#endif
+}
+
+static unsigned nxp_fb_dev_get_addr(struct nxp_fb_param *par)
+{
+	int module = par->fb_dev.device_id;
+	int layer = par->fb_dev.layer;
+	unsigned int phyaddr = 0;
+
+	if (-1 == module)
+		return 0;
+
+	nxp_soc_disp_rgb_get_address(module, layer, &phyaddr, NULL, NULL);
+	return phyaddr;
 }
 
 static void nxp_fb_copy_boot_logo(struct nxp_fb_param *par, int size)
@@ -628,14 +624,15 @@ static void nxp_fb_setup_info(struct fb_info *info)
 static int nxp_fb_setup_ion(struct nxp_fb_dma_buf_data *d)
 {
     struct ion_device *ion_dev = get_global_ion_device();
-    memset(d, 0, sizeof(*d));
 
     if (!ion_dev) {
         pr_err("%s Error: no ion device!!!\n", __func__);
         return -EINVAL;
     }
 
-    d->ion_client = ion_client_create(ion_dev, "nxp-fb");
+    d->ion_client = ion_client_create(ion_dev,
+            ION_HEAP_NXP_CONTIG_MASK,
+            "nxp-fb");
     if (IS_ERR(d->ion_client)) {
         pr_err("%s Error: ion_client_create()\n", __func__);
         return -EINVAL;
@@ -646,15 +643,19 @@ static int nxp_fb_setup_ion(struct nxp_fb_dma_buf_data *d)
 
 static int nxp_fb_map_ion_handle(struct nxp_fb_device *fb_dev,
         struct dma_buf_context *ctx,
-        struct ion_handle *ion_handle, struct dma_buf *buf)
+        struct ion_handle *ion_handle, int fd)
 {
     int ret = 0;
 
-    ctx->dma_buf = buf;
+    ctx->dma_buf = dma_buf_get(fd);
+    if (IS_ERR_OR_NULL(ctx->dma_buf)) {
+        pr_err("%s Error: dma_buf_get(%d)\n", __func__, fd);
+        return -EINVAL;
+    }
 
     ctx->attachment = dma_buf_attach(ctx->dma_buf, fb_dev->dev);
     if (IS_ERR_OR_NULL(ctx->attachment)) {
-        pr_err("%s Error: fail to dma_buf_attach()\n", __func__);
+        pr_err("%s Error: dma_buf_attach()\n", __func__);
         ret = -EINVAL;
         goto err_attachment;
     }
@@ -669,18 +670,20 @@ static int nxp_fb_map_ion_handle(struct nxp_fb_device *fb_dev,
 
     ctx->dma_addr = sg_phys(ctx->sg_table->sgl);
     ctx->virt     = sg_virt(ctx->sg_table->sgl);
-    ctx->ion_handle = ion_handle;
+	ctx->ion_handle = ion_handle;
 
-    dma_buf_put(ctx->dma_buf);	/* decrease file count */
+	dma_buf_put(ctx->dma_buf);	/* derease file count */
 
-    printk(KERN_INFO "%s.%d: dma addr = 0x%x, buf[0x%08x]\n",
-        DEV_NAME_FB, fb_dev->device_id, ctx->dma_addr, (uint)buf);
+    printk(KERN_INFO "%s.%d: dma addr = 0x%x, fd[%d]\n",
+    	DEV_NAME_FB, fb_dev->device_id, ctx->dma_addr, fd);
     return 0;
 
 err_map_attachment:
     dma_buf_detach(ctx->dma_buf, ctx->attachment);
     ctx->attachment = NULL;
 err_attachment:
+    dma_buf_put(ctx->dma_buf);
+    ctx->dma_buf = NULL;
     return ret;
 }
 
@@ -711,8 +714,9 @@ static void nxp_fb_free_dma_buf(struct nxp_fb_device *fb_dev,
 static int nxp_fb_ion_alloc_mem(struct nxp_fb_device *fb_dev)
 {
     int ret;
-    struct dma_buf *buf;
+    int fd;
     unsigned int size;
+    struct file *file;
     struct ion_handle *handle;
     struct nxp_fb_dma_buf_data *d = &fb_dev->dma_buf_data;
     struct dma_buf_context *ctx;
@@ -729,24 +733,34 @@ static int nxp_fb_ion_alloc_mem(struct nxp_fb_device *fb_dev)
             return -ENOMEM;
         }
 
-        buf = ion_share_dma_buf(d->ion_client, handle);
-        if (IS_ERR_OR_NULL(buf)) {
-            pr_err("%s Error: fail to ion_share_dma_buf()\n", __func__);
+        fd = ion_share_dma_buf(d->ion_client, handle);
+        if (fd < 0) {
+            pr_err("%s Error: ion_share_dma_buf()\n", __func__);
             ret = -EINVAL;
             goto err_share_dma_buf;
         }
 
-        ret = nxp_fb_map_ion_handle(fb_dev, ctx, handle, buf);
+        ret = nxp_fb_map_ion_handle(fb_dev, ctx, handle, fd);
         if (ret) {
             pr_err("%s Error: nxp_fb_map_ion_handle()\n", __func__);
             goto err_map;
         }
-        ctx->user_fd = -1;
+		/* Free FD */
+        {
+	       	struct fdtable *fdt = files_fdtable(current->files);
+	     // struct file *file = fcheck_files(current->files, fd);
+        	rcu_assign_pointer(fdt->fd[fd], NULL);		/* release filep */
+	     //	atomic_long_dec_and_test(&file->f_count);	/* decrease f_count */
+		    put_unused_fd(fd);							/* clear open flag */
+       	}
+		ctx->user_fd = -1;
     }
     return 0;
 
 err_map:
-    dma_buf_put(buf);
+    file = fget(fd);
+    fput(file);
+    fput(file);
 err_share_dma_buf:
     ion_free(d->ion_client, handle);
 
@@ -1139,22 +1153,24 @@ static int nxp_fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long ar
                 ret = -EFAULT;
                 break;
             }
-            pr_debug("%s: NXPFB_GET_FB_FD current %p, index(%d), client %p, handle %p\n", __func__, current, index, d->ion_client, d->context[index].ion_handle);
-            /*if (d->context[index].user_fd == 0) {*/
-                fd = ion_share_dma_buf_fd(d->ion_client, d->context[index].ion_handle);
-                if (fd < 0) {
-                    printk("%s NXPFB_GET_FB_FD failed: Fail to dma_buf_fd()\n", __func__);
-                    ret = -EINVAL;
-                } else {
-                    pr_debug("fd: %d\n", fd);
-                    d->context[index].user_fd = fd;
-                    if (put_user(d->context[index].user_fd, (int __user *)arg)) {
-                        ret = -EFAULT;
-                        break;
-                    }
+            pr_debug("%s: NXPFB_GET_FB_FD index(%d)\n", __func__, index);
+#if 0
+            fd = dma_buf_fd(d->context[index].dma_buf, 0);
+#else
+            fd = ion_share_dma_buf(d->ion_client, d->context[index].ion_handle);
+#endif
+            if (fd < 0) {
+                printk("%s NXPFB_GET_FB_FD failed: Fail to dma_buf_fd()\n", __func__);
+                ret = -EINVAL;
+            } else {
+                pr_debug("fd: %d\n", fd);
+                d->context[index].user_fd = fd;
+                if (put_user(fd, (int __user *)arg)) {
+                    ret = -EFAULT;
+                    break;
                 }
-            /*}*/
-            pr_debug("success!!!\n");
+                pr_debug("success!!!\n");
+            }
         }
         break;
     case NXPFB_GET_ACTIVE:
@@ -1170,9 +1186,9 @@ static int nxp_fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long ar
         pr_debug("success!!!\n");
     }
         break;
+	#if 0
     case NXPFB_SET_FB_FD:
         {
-#if 0
             u32 import_fd;
             struct ion_handle *handle;
             struct nxp_fb_dma_buf_data dma_buf_data;
@@ -1199,31 +1215,9 @@ static int nxp_fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long ar
 
             nxp_fb_update_from_dma_buf_data(info, &dma_buf_data);
             nxp_fb_copy_dma_buf_data(dev, &dma_buf_data);
-#else
-            u32 import_fd;
-            struct nxp_fb_dma_buf_data *d;
-            int i;
-            if (get_user(import_fd, (u32 __user *)arg)) {
-                ret = -EFAULT;
-                break;
-            }
-            d = &dev->dma_buf_data;
-            for (i = 0; i < 3; i++) {
-                if (d->context[i].user_fd == import_fd)
-                    break;
-            }
-            if (i >= 3) {
-                printk("%s: can't find index for user fd %d\n", __func__, import_fd);
-                ret = -EINVAL;
-            } else {
-                if (dev->fb_pan_phys != d->context[i].dma_addr) {
-                    dev->fb_pan_phys = d->context[i].dma_addr;
-                    nxp_fb_update_buffer(info, 1);
-                }
-            }
-#endif
         }
         break;
+	#endif
     }
 #endif
 	return ret;
